@@ -30,7 +30,8 @@ async def test_get_world_state_success():
 
 @pytest.mark.asyncio
 async def test_get_world_state_invalid_api_key():
-    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)):
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
         with pytest.raises(ValueError, match="invalid API key"):
             await get_world_state(api_key="bad-key")
 
@@ -38,6 +39,7 @@ async def test_get_world_state_invalid_api_key():
 @pytest.mark.asyncio
 async def test_get_world_state_rate_limited():
     with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
-         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))):
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
         with pytest.raises(ValueError, match="rate limit exceeded"):
             await get_world_state(api_key="key")

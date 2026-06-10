@@ -13,10 +13,7 @@ WRITE = settings.rate_limit_vision_per_window
 
 
 async def _authenticate(api_key: str, limit: int) -> dict:
-    try:
-        pool = get_pool()
-    except RuntimeError:
-        pool = None
+    pool = get_pool()
     agent = await resolve_agent(pool, api_key)
     if agent is None:
         raise ValueError("invalid API key")
