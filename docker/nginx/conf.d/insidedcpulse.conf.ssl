@@ -80,6 +80,11 @@ server {
         proxy_read_timeout 3600s;
     }
 
+    # Public status page (static, Grafana public dashboards embedded)
+    location = /status {
+        alias /usr/share/nginx/html/static/status.html;
+    }
+
     # Public API
     location / {
         limit_req zone=api_limit burst=40 nodelay;
