@@ -96,6 +96,15 @@ server {
         alias /usr/share/nginx/html/static/status.html;
     }
 
+    # Sitemap / robots for search engines and LLM crawlers
+    location = /sitemap.xml {
+        alias /usr/share/nginx/html/static/sitemap.xml;
+    }
+
+    location = /robots.txt {
+        alias /usr/share/nginx/html/static/robots.txt;
+    }
+
     # Public API
     location / {
         limit_req zone=api_limit burst=40 nodelay;

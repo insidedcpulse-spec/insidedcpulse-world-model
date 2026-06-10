@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /grafana/
+Disallow: /hooks/
+Disallow: /metrics
+
+Sitemap: https://insidedcpulse.com/sitemap.xml
