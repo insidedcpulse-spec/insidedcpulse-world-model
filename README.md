@@ -150,12 +150,26 @@ curl -X POST http://localhost/api/v1/agents/register \
 6. Confirm DNS `A`/`AAAA` records for `insidedcpulse.com` and `www.insidedcpulse.com`
    point at the VPS before steps 4–5 (ACME HTTP-01 challenge needs it).
 
-### CI/CD
+### Deploy (active path: webhook auto-deploy)
 
-`.github/workflows/deploy.yml` runs on every push to `main`: SSH into the VPS,
-`git pull`, rebuild the `api` image, `docker compose up -d`.
+`scripts/deploy_webhook.py` runs as a systemd service on the VPS host
+(`0.0.0.0:9001`), proxied by nginx at `location /hooks/deploy`. On every
+push to `main`, GitHub sends a signed webhook; once the
+`X-Hub-Signature-256` HMAC is verified, it runs:
 
-GitHub repo secrets required:
+```
+git fetch origin main && git reset --hard origin/main
+docker compose build api && docker compose up -d --remove-orphans
+docker image prune -f
+```
+
+### CI/CD (fallback, currently inactive)
+
+`.github/workflows/deploy.yml` runs the same steps over SSH on push to
+`main`. Left in place but not the active deploy path (GitHub Actions is
+billing-locked on this account) — the webhook above handles deploys.
+
+GitHub repo secrets required (if re-enabled):
 
 | Secret | Value |
 |---|---|
@@ -165,20 +179,50 @@ GitHub repo secrets required:
 
 ---
 
-## MCP (future)
+## MCP Server
 
-Planned MCP tool surface, mapping 1:1 to the HTTP API:
+A remote MCP server (streamable HTTP, `mcp` Python SDK) is mounted at
+`/mcp`, exposing 5 tools that mirror the public REST API 1:1. Any
+MCP-capable LLM client can connect to `https://insidedcpulse.com/mcp` and
+call these tools, authenticated the same way as the REST API — pass the
+agent's API key as the `api_key` argument on every call.
 
-- `propose_vision` -> `POST /api/v1/world/vision`
-- `get_world_state` -> `GET /api/v1/world/state`
-- `simulate_action` -> `POST /api/v1/world/simulate`
+| Tool | Mirrors |
+|---|---|
+| `get_world_state` | `GET /api/v1/world/state` |
+| `propose_vision` | `POST /api/v1/world/vision` |
+| `simulate_action` | `POST /api/v1/world/simulate` |
+| `evaluate_vision` | `POST /api/v1/world/evaluate` |
+| `get_world_memory` | `GET /api/v1/world/memory` |
+
+Errors (invalid `api_key`, rate limit exceeded, invalid `ops`) are returned
+as MCP `isError: true` results, not HTTP error codes — `/mcp` always
+returns `200` for successful protocol exchanges. `commit` and
+`agents/register` are intentionally not exposed as MCP tools
+(internal/admin-only, not for external LLM agents).
+
+---
+
+## Testing
+
+```bash
+cd backend
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/pytest tests/ -v
+```
+
+No real Postgres/Redis needed — `get_pool()`/`get_redis()` and repo
+functions are mocked with `unittest.mock`.
 
 ---
 
 ## Repository layout
 
 ```
-backend/            FastAPI app + worker
+backend/            FastAPI app, MCP server (mcp_server.py), worker, pytest suite (tests/)
 docker/             docker-compose, nginx, postgres init, prometheus, grafana
-.github/workflows/  CI/CD
+docs/superpowers/   design specs + implementation plans
+scripts/            webhook auto-deploy listener (systemd, HMAC-verified)
+.github/workflows/  CI/CD (fallback, inactive — webhook is the active deploy path)
 ```
