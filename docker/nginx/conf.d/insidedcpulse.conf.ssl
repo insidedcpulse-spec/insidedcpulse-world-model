@@ -48,6 +48,12 @@ server {
         deny all;
     }
 
+    # Google Search Console site verification
+    location = /google6OT34y25WROPmIz7NBJAKFE1eA_afRxNssY--XACZfI.html {
+        default_type "text/html";
+        return 200 "google-site-verification: 6OT34y25WROPmIz7NBJAKFE1eA_afRxNssY--XACZfI";
+    }
+
     # Deploy webhook (forwarded to host listener on port 9001)
     location /hooks/deploy {
         proxy_pass http://host.docker.internal:9001/hooks/deploy;
