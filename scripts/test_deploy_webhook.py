@@ -1,9 +1,19 @@
 import hashlib
 import hmac
+import json
+import threading
 import unittest
+import urllib.error
+import urllib.request
+from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 
-from deploy_webhook import run_deploy, should_deploy, verify_signature
+from deploy_webhook import (
+    DeployWebhookHandler,
+    run_deploy,
+    should_deploy,
+    verify_signature,
+)
 
 SECRET = b"test-secret"
 
@@ -61,6 +71,100 @@ class TestRunDeploy(unittest.TestCase):
         mock_run.return_value.stderr = "boom"
         run_deploy()
         self.assertEqual(mock_run.call_count, 1)
+
+
+class TestDeployWebhookHandler(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        DeployWebhookHandler.secret = SECRET
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), DeployWebhookHandler)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.thread.join()
+
+    def _post(self, path, body, headers):
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}{path}",
+            data=body,
+            method="POST",
+            headers=headers,
+        )
+        try:
+            resp = urllib.request.urlopen(req)
+            return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_healthz(self):
+        resp = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/healthz")
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(resp.read(), b"ok")
+
+    def test_invalid_signature_rejected(self):
+        body = b'{"ref": "refs/heads/main"}'
+        status, _ = self._post(
+            "/hooks/deploy",
+            body,
+            {
+                "X-Hub-Signature-256": "sha256=deadbeef",
+                "X-GitHub-Event": "push",
+                "Content-Type": "application/json",
+            },
+        )
+        self.assertEqual(status, 401)
+
+    @patch("deploy_webhook.run_deploy")
+    def test_valid_push_to_main_triggers_deploy(self, mock_deploy):
+        body = b'{"ref": "refs/heads/main"}'
+        status, resp_body = self._post(
+            "/hooks/deploy",
+            body,
+            {
+                "X-Hub-Signature-256": sign(body),
+                "X-GitHub-Event": "push",
+                "Content-Type": "application/json",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(resp_body, b"ok")
+        for _ in range(50):
+            if mock_deploy.called:
+                break
+            threading.Event().wait(0.01)
+        mock_deploy.assert_called_once()
+
+    @patch("deploy_webhook.run_deploy")
+    def test_valid_push_to_other_branch_no_deploy(self, mock_deploy):
+        body = b'{"ref": "refs/heads/feature-x"}'
+        status, _ = self._post(
+            "/hooks/deploy",
+            body,
+            {
+                "X-Hub-Signature-256": sign(body),
+                "X-GitHub-Event": "push",
+                "Content-Type": "application/json",
+            },
+        )
+        self.assertEqual(status, 200)
+        threading.Event().wait(0.05)
+        mock_deploy.assert_not_called()
+
+    def test_unknown_path(self):
+        status, _ = self._post(
+            "/other",
+            b"{}",
+            {
+                "X-Hub-Signature-256": sign(b"{}"),
+                "X-GitHub-Event": "push",
+                "Content-Type": "application/json",
+            },
+        )
+        self.assertEqual(status, 404)
 
 
 if __name__ == "__main__":

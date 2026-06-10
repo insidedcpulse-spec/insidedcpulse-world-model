@@ -2,7 +2,11 @@
 """Webhook listener: verifies a GitHub push to main and redeploys the api service."""
 import hashlib
 import hmac
+import json
+import os
 import subprocess
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 def verify_signature(secret: bytes, body: bytes, signature_header: str | None) -> bool:
@@ -41,3 +45,62 @@ def run_deploy() -> None:
             print(f"[deploy] step failed with exit code {result.returncode}, aborting", flush=True)
             return
     print("[deploy] done", flush=True)
+
+
+class DeployWebhookHandler(BaseHTTPRequestHandler):
+    secret: bytes = b""
+
+    def do_GET(self):
+        if self.path == "/healthz":
+            self._respond(200, b"ok")
+        else:
+            self._respond(404, b"not found")
+
+    def do_POST(self):
+        if self.path != "/hooks/deploy":
+            self._respond(404, b"not found")
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+
+        if not verify_signature(self.secret, body, self.headers.get("X-Hub-Signature-256")):
+            print("[webhook] invalid signature", flush=True)
+            self._respond(401, b"invalid signature")
+            return
+
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            payload = {}
+
+        event = self.headers.get("X-GitHub-Event")
+        if should_deploy(event, payload):
+            print(f"[webhook] push to {payload.get('ref')}, deploying", flush=True)
+            threading.Thread(target=run_deploy, daemon=True).start()
+        else:
+            print(f"[webhook] ignoring event={event} ref={payload.get('ref')}", flush=True)
+
+        self._respond(200, b"ok")
+
+    def _respond(self, status: int, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, fmt, *args):
+        print("[http] " + (fmt % args), flush=True)
+
+
+def main() -> None:
+    secret = os.environ["WEBHOOK_SECRET"].encode()
+    DeployWebhookHandler.secret = secret
+    server = ThreadingHTTPServer(("127.0.0.1", 9001), DeployWebhookHandler)
+    print("[webhook] listening on 127.0.0.1:9001", flush=True)
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
