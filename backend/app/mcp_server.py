@@ -1,9 +1,20 @@
 from mcp.server.fastmcp import FastMCP
 
+import json
+import uuid
+from datetime import datetime, timezone
+
+from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
+from app.events_repo import insert_pending_event
+from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
+from app.redis_client import get_redis
+from app.schemas import VisionRequest
 from app.security import resolve_agent
+from app.validation import check_duplicate, estimate_size
+from app.worker import publish
 from app.world_state import get_state
 
 mcp = FastMCP("InsideDCPulse")
@@ -30,3 +41,44 @@ async def get_world_state(api_key: str) -> dict:
     await _authenticate(api_key, READ)
     state = await get_state(get_pool())
     return state.model_dump(mode="json")
+
+
+@mcp.tool()
+async def propose_vision(
+    api_key: str,
+    description: str,
+    ops: list[dict],
+    event_type: str = "vision",
+    metadata: dict | None = None,
+) -> dict:
+    """Propose a vision/action. Queued for deterministic validation, never applied directly."""
+    agent = await _authenticate(api_key, WRITE)
+    payload = VisionRequest(event_type=event_type, description=description, ops=ops, metadata=metadata or {})
+
+    pool = get_pool()
+    r = get_redis()
+
+    size = estimate_size(payload)
+    if size > settings.max_payload_bytes:
+        raise ValueError(f"payload too large ({size} > {settings.max_payload_bytes} bytes)")
+
+    if await check_duplicate(r, agent["id"], payload):
+        raise ValueError("duplicate event: identical submission within the last 60s")
+
+    event_id = uuid.uuid4()
+    payload_dict = payload.model_dump(mode="json")
+
+    with POSTGRES_WRITE_DURATION.time():
+        await insert_pending_event(pool, event_id, agent["id"], payload.event_type, payload_dict)
+        await increment_submitted(pool, agent["id"])
+
+    await r.rpush(settings.queue_key, json.dumps({
+        "event_id": str(event_id),
+        "agent_id": agent["id"],
+        "event_type": payload.event_type,
+        "payload": payload_dict,
+    }))
+
+    await publish(r, {"type": "vision_received", "event_id": str(event_id), "agent_id": agent["id"]})
+
+    return {"event_id": str(event_id), "status": "queued", "submitted_at": datetime.now(timezone.utc).isoformat()}
