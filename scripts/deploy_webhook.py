@@ -97,8 +97,11 @@ class DeployWebhookHandler(BaseHTTPRequestHandler):
 def main() -> None:
     secret = os.environ["WEBHOOK_SECRET"].encode()
     DeployWebhookHandler.secret = secret
-    server = ThreadingHTTPServer(("127.0.0.1", 9001), DeployWebhookHandler)
-    print("[webhook] listening on 127.0.0.1:9001", flush=True)
+    # 0.0.0.0: nginx reaches this via host.docker.internal (the docker
+    # bridge gateway IP), which is not 127.0.0.1 from inside the container.
+    # The /hooks/deploy endpoint is protected by HMAC signature verification.
+    server = ThreadingHTTPServer(("0.0.0.0", 9001), DeployWebhookHandler)
+    print("[webhook] listening on 0.0.0.0:9001", flush=True)
     server.serve_forever()
 
 
