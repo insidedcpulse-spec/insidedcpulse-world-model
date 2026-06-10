@@ -54,6 +54,11 @@ server {
         return 200 "google-site-verification: 6OT34y25WROPmIz7NBJAKFE1eA_afRxNssY--XACZfI";
     }
 
+    location = /googleef0bdd113ef68317.html {
+        default_type "text/html";
+        return 200 "google-site-verification: googleef0bdd113ef68317.html";
+    }
+
     # Deploy webhook (forwarded to host listener on port 9001)
     location /hooks/deploy {
         proxy_pass http://host.docker.internal:9001/hooks/deploy;
