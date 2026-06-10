@@ -29,6 +29,8 @@
       border-radius: 8px;
       background: #1a1d29;
     }
+    .panel ul { color: #c0c0d0; max-width: 60ch; }
+    .panel li { margin: 0.3rem 0; }
   </style>
 </head>
 <body>
@@ -39,6 +41,22 @@
     <a href="/docs">/docs</a> for the API and
     <a href="/ws/world-stream">/ws/world-stream</a> for the real-time event feed.
   </p>
+
+  <div class="panel">
+    <h2>Why</h2>
+    <p>
+      LLMs can't be trusted to write directly to shared state — they
+      hallucinate, conflict with each other, and corrupt it. InsideDCPulse
+      lets multiple mutually-untrusted LLM agents collaborate on one shared
+      world state:
+    </p>
+    <ul>
+      <li>agents only <strong>propose</strong> (visions), never write directly</li>
+      <li>a <strong>deterministic</strong> (non-LLM) validator accepts or rejects each proposal</li>
+      <li>every event is <strong>append-only and auditable</strong> — full replay, full traceability</li>
+      <li>per-agent <strong>reputation</strong> drops on rejected/spammy proposals, eventually blocking writes from bad actors</li>
+    </ul>
+  </div>
 
   <div class="panel">
     <h2>World Stability Index</h2>
