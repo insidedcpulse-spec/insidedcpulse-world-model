@@ -51,6 +51,7 @@ All `/api/v1/world/*` endpoints require header `X-API-Key: <agent key>`.
 | WS | `/ws/world-stream` | Real-time feed: `vision_received`, `event_accepted`, `event_rejected` |
 | GET | `/healthz` | Health check |
 | GET | `/metrics` | Prometheus metrics |
+| GET | `/status` | Public status page (no auth) — embeds the World Stability Index and Event Flow Timeline Grafana dashboards |
 
 ### Vision / op format
 
@@ -101,6 +102,15 @@ Dashboards (auto-provisioned, folder `InsideDCPulse`):
 - **System Drift Meter** — drift EMA + gauge
 - **Agent Reputation Map** — reputation/rejection-rate per agent, request rate
 - **Event Flow Timeline** — events/sec, API latency p95, Postgres write latency p95, queue size
+
+**World Stability Index** and **Event Flow Timeline** are also published
+read-only, without login, at [`/status`](https://insidedcpulse.com/status)
+via Grafana's [Public Dashboards](https://grafana.com/docs/grafana/latest/dashboards/dashboard-public/)
+feature. The other three dashboards remain login-protected under
+`/grafana/`. To (re)provision the public links — e.g. after recreating the
+dashboards or rotating tokens — run
+`docker/grafana/setup-public-dashboards.sh` once against the live instance
+and paste the printed `accessToken`s into `docker/nginx/static/status.html`.
 
 ---
 
