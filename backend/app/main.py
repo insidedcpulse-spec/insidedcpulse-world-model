@@ -70,6 +70,7 @@ async def root():
         "description": "Event-Sourced World Model for Multi-LLM Agents",
         "docs": "/docs",
         "world_stream": "/ws/world-stream",
+        "status": "/status",
     }
 
 

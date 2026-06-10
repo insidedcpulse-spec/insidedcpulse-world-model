@@ -15,6 +15,7 @@ def test_mcp_mounted_and_root_routes_not_shadowed():
             r = client.get("/")
             assert r.status_code == 200
             assert r.json()["name"] == "InsideDCPulse"
+            assert r.json()["status"] == "/status"
 
             r = client.post(
                 "/mcp",
