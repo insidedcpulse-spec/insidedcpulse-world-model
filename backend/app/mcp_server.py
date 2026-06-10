@@ -13,7 +13,7 @@ from app.rate_limit import RateLimitExceeded, enforce_rate_limit
 from app.redis_client import get_redis
 from app.schemas import VisionRequest
 from app.security import resolve_agent
-from app.validation import check_duplicate, estimate_size, ops_hash
+from app.validation import check_duplicate, estimate_size, evaluate, ops_hash
 from app.worker import publish
 from app.world_state import get_state, simulate_ops
 
@@ -111,3 +111,18 @@ async def simulate_action(
         "results": [res.model_dump(mode="json") for res in results],
         "drift": 0.0,
     }
+
+
+@mcp.tool()
+async def evaluate_vision(
+    api_key: str,
+    description: str,
+    ops: list[dict],
+    event_type: str = "vision",
+    metadata: dict | None = None,
+) -> dict:
+    """Score a vision against deterministic validation rules without queueing it."""
+    agent = await _authenticate(api_key, READ)
+    payload = VisionRequest(event_type=event_type, description=description, ops=ops, metadata=metadata or {})
+    score, would_accept, reasons = await evaluate(get_pool(), agent, payload)
+    return {"score": score, "would_accept": would_accept, "reasons": reasons}

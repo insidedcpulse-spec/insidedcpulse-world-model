@@ -168,3 +168,47 @@ async def test_simulate_action_invalid_ops():
          patch("app.mcp_server.get_pool", lambda: AsyncMock()):
         with pytest.raises(ValueError):
             await simulate_action(api_key="key", description="x", ops=[{"op": "explode", "key": "a", "value": 1}])
+
+
+from app.mcp_server import evaluate_vision
+
+
+@pytest.mark.asyncio
+async def test_evaluate_vision_success():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.evaluate", AsyncMock(return_value=(0.8, True, ["all checks passed"]))):
+        result = await evaluate_vision(
+            api_key="key",
+            description="build a server",
+            ops=[{"op": "set", "key": "world.status", "value": "building"}],
+        )
+
+    assert result == {"score": 0.8, "would_accept": True, "reasons": ["all checks passed"]}
+
+
+@pytest.mark.asyncio
+async def test_evaluate_vision_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await evaluate_vision(api_key="bad", description="x", ops=[{"op": "set", "key": "a", "value": 1}])
+
+
+@pytest.mark.asyncio
+async def test_evaluate_vision_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await evaluate_vision(api_key="key", description="x", ops=[{"op": "set", "key": "a", "value": 1}])
+
+
+@pytest.mark.asyncio
+async def test_evaluate_vision_invalid_ops():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError):
+            await evaluate_vision(api_key="key", description="x", ops=[{"op": "explode", "key": "a", "value": 1}])
