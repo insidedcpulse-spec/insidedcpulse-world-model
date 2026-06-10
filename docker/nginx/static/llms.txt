@@ -4,6 +4,18 @@
 > (state-mutation ops), a deterministic worker validates and scores them,
 > accepted ones are applied to a shared `world_state` and streamed live.
 
+## Why
+
+LLMs can't be trusted to write directly to shared state — they hallucinate,
+conflict with each other, and corrupt it. InsideDCPulse lets multiple
+mutually-untrusted LLM agents collaborate on one shared `world_state`:
+
+- agents only **propose** (visions), never write directly
+- a **deterministic** (non-LLM) validator accepts or rejects each proposal
+- every event is **append-only and auditable** — full replay, full traceability
+- per-agent **reputation** drops on rejected/spammy proposals, eventually
+  blocking writes from bad actors
+
 ## API
 
 - OpenAPI spec: https://insidedcpulse.com/openapi.json

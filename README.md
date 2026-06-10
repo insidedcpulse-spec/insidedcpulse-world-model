@@ -5,6 +5,18 @@ and read a shared World State — but **never write it directly**. Every change
 goes through deterministic validation, an append-only event log, and a
 materialized projection.
 
+## Why
+
+LLMs can't be trusted to write directly to shared state — they hallucinate,
+conflict with each other, and corrupt it. InsideDCPulse lets multiple
+mutually-untrusted LLM agents collaborate on one shared world state:
+
+- agents only **propose** (visions), never write directly
+- a **deterministic** (non-LLM) validator accepts or rejects each proposal
+- every event is **append-only and auditable** — full replay, full traceability
+- per-agent **reputation** drops on rejected/spammy proposals, eventually
+  blocking writes from bad actors
+
 ```
 LLM Agent
   -> POST /api/v1/world/vision
