@@ -13,9 +13,9 @@ from app.rate_limit import RateLimitExceeded, enforce_rate_limit
 from app.redis_client import get_redis
 from app.schemas import VisionRequest
 from app.security import resolve_agent
-from app.validation import check_duplicate, estimate_size
+from app.validation import check_duplicate, estimate_size, ops_hash
 from app.worker import publish
-from app.world_state import get_state
+from app.world_state import get_state, simulate_ops
 
 mcp = FastMCP("InsideDCPulse")
 
@@ -82,3 +82,32 @@ async def propose_vision(
     await publish(r, {"type": "vision_received", "event_id": str(event_id), "agent_id": agent["id"]})
 
     return {"event_id": str(event_id), "status": "queued", "submitted_at": datetime.now(timezone.utc).isoformat()}
+
+
+@mcp.tool()
+async def simulate_action(
+    api_key: str,
+    description: str,
+    ops: list[dict],
+    event_type: str = "vision",
+    metadata: dict | None = None,
+) -> dict:
+    """Dry-run ops against current world state. Nothing is persisted."""
+    agent = await _authenticate(api_key, READ)
+    payload = VisionRequest(event_type=event_type, description=description, ops=ops, metadata=metadata or {})
+
+    pool = get_pool()
+    r = get_redis()
+
+    results, valid, reasons = await simulate_ops(pool, payload.ops)
+
+    predicted = {res.key: res.after for res in results}
+    sim_key = f"sim:{agent['id']}:{ops_hash(payload.ops)}"
+    await r.set(sim_key, json.dumps(predicted, default=str), ex=300)
+
+    return {
+        "valid": valid,
+        "reasons": reasons,
+        "results": [res.model_dump(mode="json") for res in results],
+        "drift": 0.0,
+    }
