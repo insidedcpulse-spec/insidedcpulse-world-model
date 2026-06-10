@@ -109,6 +109,10 @@ server {
         alias /usr/share/nginx/html/static/llms.txt;
     }
 
+    location = /.well-known/mcp-registry-auth {
+        alias /usr/share/nginx/html/static/mcp-registry-auth;
+    }
+
     # Public API
     location / {
         limit_req zone=api_limit burst=40 nodelay;
