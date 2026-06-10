@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import close_pool, get_pool, init_pool
+from app.mcp_server import mcp
 from app.metrics import MetricsMiddleware, metrics_response
 from app.redis_client import close_redis, get_redis
 from app.routers import agents, world, ws
@@ -23,7 +24,8 @@ async def lifespan(app: FastAPI):
     worker_task = asyncio.create_task(worker_loop(pool, redis_client, stop_event))
     logger.info("InsideDCPulse API ready")
 
-    yield
+    async with mcp.session_manager.run():
+        yield
 
     stop_event.set()
     worker_task.cancel()
@@ -69,3 +71,7 @@ async def root():
         "docs": "/docs",
         "world_stream": "/ws/world-stream",
     }
+
+
+# Mounted last so it only matches paths not already handled by the routes above.
+app.mount("/", mcp.streamable_http_app(), name="mcp")
