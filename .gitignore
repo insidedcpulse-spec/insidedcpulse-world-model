@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+docker/.env
+docker/nginx/conf.d/insidedcpulse.conf
+.venv/

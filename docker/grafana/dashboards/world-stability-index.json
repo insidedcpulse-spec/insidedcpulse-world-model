@@ -1,0 +1,51 @@
+{
+  "uid": "idc-world-stability",
+  "title": "World Stability Index",
+  "tags": ["insidedcpulse"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "title": "World Consensus Score (EMA)", "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "steps": [
+        { "color": "red", "value": 0 }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 0.7 }
+      ] } }, "overrides": [] },
+      "targets": [{ "expr": "insidedcpulse_world_consensus_score", "refId": "A" }]
+    },
+    {
+      "id": 2, "title": "World State Keys", "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "insidedcpulse_world_state_keys", "refId": "A" }]
+    },
+    {
+      "id": 3, "title": "Pending Queue Size", "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1000, "thresholds": { "steps": [
+        { "color": "green", "value": 0 }, { "color": "orange", "value": 100 }, { "color": "red", "value": 500 }
+      ] } }, "overrides": [] },
+      "targets": [{ "expr": "insidedcpulse_world_queue_size", "refId": "A" }]
+    },
+    {
+      "id": 4, "title": "Drift (EMA)", "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "insidedcpulse_world_drift", "refId": "A" }]
+    },
+    {
+      "id": 5, "title": "Commits: Accepted vs Rejected (rate/5m)", "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rate(insidedcpulse_world_events_total{status=\"accepted\"}[5m])", "legendFormat": "accepted", "refId": "A" },
+        { "expr": "rate(insidedcpulse_world_events_total{status=\"rejected\"}[5m])", "legendFormat": "rejected", "refId": "B" }
+      ]
+    }
+  ]
+}

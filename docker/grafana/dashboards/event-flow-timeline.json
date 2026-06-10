@@ -1,0 +1,36 @@
+{
+  "uid": "idc-event-flow-timeline",
+  "title": "Event Flow Timeline",
+  "tags": ["insidedcpulse"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "title": "Events per Second by Status", "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (status) (rate(insidedcpulse_world_events_total[1m]))", "legendFormat": "{{status}}", "refId": "A" }]
+    },
+    {
+      "id": 2, "title": "API Latency p95 by Endpoint", "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(insidedcpulse_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{endpoint}}", "refId": "A" }]
+    },
+    {
+      "id": 3, "title": "Postgres Write Latency p95", "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(insidedcpulse_postgres_write_duration_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A" }]
+    },
+    {
+      "id": 4, "title": "Redis Queue Size", "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "insidedcpulse_world_queue_size", "legendFormat": "queue size", "refId": "A" }]
+    }
+  ]
+}
