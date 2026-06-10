@@ -212,3 +212,40 @@ async def test_evaluate_vision_invalid_ops():
          patch("app.mcp_server.get_pool", lambda: AsyncMock()):
         with pytest.raises(ValueError):
             await evaluate_vision(api_key="key", description="x", ops=[{"op": "explode", "key": "a", "value": 1}])
+
+
+from app.mcp_server import get_world_memory
+from app.schemas import MemoryResponse
+
+
+@pytest.mark.asyncio
+async def test_get_world_memory_success():
+    fake_memory = MemoryResponse(items=[], total=0, limit=50, offset=0)
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_memory", AsyncMock(return_value=fake_memory)):
+        result = await get_world_memory(api_key="key")
+
+    assert result["total"] == 0
+    assert result["limit"] == 50
+    assert result["offset"] == 0
+    assert result["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_world_memory_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_world_memory(api_key="bad")
+
+
+@pytest.mark.asyncio
+async def test_get_world_memory_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_world_memory(api_key="key")

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
-from app.events_repo import insert_pending_event
+from app.events_repo import get_memory, insert_pending_event
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
 from app.redis_client import get_redis
@@ -126,3 +126,17 @@ async def evaluate_vision(
     payload = VisionRequest(event_type=event_type, description=description, ops=ops, metadata=metadata or {})
     score, would_accept, reasons = await evaluate(get_pool(), agent, payload)
     return {"score": score, "would_accept": would_accept, "reasons": reasons}
+
+
+@mcp.tool()
+async def get_world_memory(
+    api_key: str,
+    limit: int = 50,
+    offset: int = 0,
+    agent_id: str | None = None,
+    status: str | None = None,
+) -> dict:
+    """Paginated, filterable event log (the audit trail)."""
+    await _authenticate(api_key, READ)
+    result = await get_memory(get_pool(), limit, offset, agent_id, status)
+    return result.model_dump(mode="json")
