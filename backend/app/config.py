@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     rate_limit_vision_per_window: int = 30
     rate_limit_read_per_window: int = 120
 
+    # Self-serve registration rate limit (per IP)
+    rate_limit_register_per_window: int = 5
+    rate_limit_register_window_seconds: int = 86400
+
     # Worker
     queue_key: str = "world:queue:pending"
     stream_channel: str = "world:stream"
