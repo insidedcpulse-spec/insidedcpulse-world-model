@@ -138,6 +138,19 @@ The vision contains 36 `set` ops, one per field listed above:
 }
 ```
 
+**Execution note (2026-06-11, post-hoc):** The live server rejected this
+exact payload — `event_type` must be the literal `"vision"` or `"action"`
+(not `"scenario_seed"`), and `ops` has a max length of 20 items. The
+scenario was actually seeded via **two** `propose_vision` calls with
+`event_type: "vision"`, splitting the 36 ops into batches of 20 and 16,
+both tagged `metadata: {"source": "scenario_seed_2026-06-11", "part":
+"1/2"}` / `"2/2"`. See
+`docs/superpowers/plans/2026-06-11-world-state-scenario-seed.md` Task 2
+for the actual batch payloads and resulting event IDs
+(`a4e0da5a-8919-4224-b1fd-28228d8e9123`,
+`87eebeee-aa7e-4e6c-866f-3c98344789b3`). All 36 key/value pairs above were
+confirmed live in `get_world_state` afterwards.
+
 Steps to execute:
 
 1. Call `evaluate_vision` with this payload first — confirm

@@ -168,7 +168,26 @@ The full ops list (36 `set` ops) is reproduced below from the spec.
 }
 ```
 
-- [ ] **Step 1: Dry-run with `evaluate_vision`**
+**Execution note (2026-06-11):** This exact payload was rejected by the
+live server — `event_type` must be `"vision"` or `"action"` (not
+`"scenario_seed"`), and `ops` has a max length of 20 items. The steps
+below were executed as **two** `propose_vision` calls instead of one:
+
+- Batch 1/2 (`event_type: "vision"`, `metadata: {"source":
+  "scenario_seed_2026-06-11", "part": "1/2"}`): the first 20 ops above
+  (`region.eu_west.*`, `region.us_east.*`, `service.checkout.*`,
+  `service.auth.*`, `service.payments_db.*`). Result: accepted, score
+  0.862, event_id `a4e0da5a-8919-4224-b1fd-28228d8e9123`.
+- Batch 2/2 (`event_type: "vision"`, `metadata: {"source":
+  "scenario_seed_2026-06-11", "part": "2/2"}`): the remaining 16 ops
+  (`team.sre.*`, `incident.inc1.*`, `alert.checkout_latency.*`,
+  `deployment.checkout_rollback.*`). Result: accepted, score 0.868,
+  event_id `87eebeee-aa7e-4e6c-866f-3c98344789b3`.
+
+Both events use `event_type: "vision"` and split the original
+description's intent across the two parts; together they preserve it.
+
+- [x] **Step 1: Dry-run with `evaluate_vision`**
 
 Call `mcp__insidedcpulse__evaluate_vision` with:
 - `api_key`: value of `CLAUDE_CODE_AGENT_API_KEY` from
@@ -187,7 +206,7 @@ If `would_accept` is `false`, stop and re-check each `key`/`value` pair
 above against `backend/app/world_schema.py`'s `ENTITY_SCHEMAS` for a
 typo before proceeding.
 
-- [ ] **Step 2: Submit with `propose_vision`**
+- [x] **Step 2: Submit with `propose_vision`**
 
 Call `mcp__insidedcpulse__propose_vision` with the **same** arguments as
 Step 1 (same `api_key`, `description`, `event_type`, `ops`, `metadata`).
@@ -196,7 +215,7 @@ Expected result: a queued/accepted confirmation (the tool returns
 immediately; the worker processes it asynchronously, typically within a
 few seconds).
 
-- [ ] **Step 3: Poll `get_world_state` until the seed lands**
+- [x] **Step 3: Poll `get_world_state` until the seed lands**
 
 Call `mcp__insidedcpulse__get_world_state` with the same `api_key`.
 Expected: the returned `state` dict contains a key
@@ -207,7 +226,7 @@ times). If it's still missing after 5 retries, check
 `mcp__insidedcpulse__get_world_memory` (Step 4) for a `rejected` status
 on the `scenario_seed` event and investigate why.
 
-- [ ] **Step 4: Verify the event in `get_world_memory`**
+- [x] **Step 4: Verify the event in `get_world_memory`**
 
 Call `mcp__insidedcpulse__get_world_memory` with:
 - `api_key`: same as above
@@ -217,7 +236,7 @@ Expected: the most recent event has
 `description: "Seed initial scenario: checkout degradation incident in eu_west following v2.4.0 rollout, SRE on-call, rollback to 2.3.5 in progress."`
 and a status indicating it was accepted/applied.
 
-- [ ] **Step 5: Spot-check the rest of the scenario in `get_world_state`**
+- [x] **Step 5: Spot-check the rest of the scenario in `get_world_state`**
 
 From the same `get_world_state` response (Step 3), confirm these keys
 are present with these values:
