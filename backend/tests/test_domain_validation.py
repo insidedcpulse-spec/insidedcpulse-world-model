@@ -164,3 +164,15 @@ def test_rejects_team_headcount_increment_below_min():
     ok, msg = check_domain_consistency(op, 5)
     assert ok is False
     assert msg == "value -5 for 'headcount' below minimum 0"
+
+
+def test_set_alert_severity_valid():
+    op = WorldOp(op="set", key="alert.a1.severity", value="critical")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_increment_on_alert_severity():
+    op = WorldOp(op="increment", key="alert.a1.severity", value=1)
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'increment' not allowed on field 'severity' (type 'enum')"

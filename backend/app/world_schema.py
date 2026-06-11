@@ -49,6 +49,12 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "headcount": {"type": "integer", "min": 0},
         "owned_services": {"type": "object"},
     },
+    "alert": {
+        "severity": {"type": "enum", "values": ["info", "warning", "critical"]},
+        "status": {"type": "enum", "values": ["firing", "resolved"]},
+        "source_service": {"type": "string"},
+        "message": {"type": "object"},
+    },
 }
 
 

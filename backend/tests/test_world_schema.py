@@ -69,3 +69,11 @@ def test_parse_key_valid_team():
 
 def test_get_field_spec_team_headcount():
     assert get_field_spec("team", "headcount") == {"type": "integer", "min": 0}
+
+
+def test_parse_key_valid_alert():
+    assert parse_key("alert.a1.severity") == KeyParts("alert", "a1", "severity")
+
+
+def test_get_field_spec_alert_status():
+    assert get_field_spec("alert", "status") == {"type": "enum", "values": ["firing", "resolved"]}
