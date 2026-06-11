@@ -120,7 +120,8 @@ server {
 
     # Human-readable landing page
     location = / {
-        alias /usr/share/nginx/html/static/index.html;
+        root /usr/share/nginx/html/static;
+        try_files /index.html =404;
     }
 
     # Public API
