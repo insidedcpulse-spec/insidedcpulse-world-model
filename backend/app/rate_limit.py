@@ -25,6 +25,17 @@ async def enforce_rate_limit(agent_id: str, limit: int) -> None:
         raise RateLimitExceeded(limit, settings.rate_limit_window_seconds)
 
 
+async def enforce_ip_rate_limit(ip: str, limit: int, window_seconds: int) -> None:
+    r = get_redis()
+    window = int(time.time() // window_seconds)
+    key = f"ratelimit:register:{ip}:{window}"
+    count = await r.incr(key)
+    if count == 1:
+        await r.expire(key, window_seconds)
+    if count > limit:
+        raise RateLimitExceeded(limit, window_seconds)
+
+
 def rate_limited(limit: int):
     """Per-agent fixed-window rate limiter backed by Redis.
 
