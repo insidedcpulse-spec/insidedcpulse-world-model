@@ -65,7 +65,7 @@ services:
     networks: [internal]
 
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v5.6.0
     restart: unless-stopped
     volumes:
       - certbot_www:/var/www/certbot
@@ -75,7 +75,7 @@ services:
     networks: [internal]
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.12.0
     restart: unless-stopped
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
