@@ -17,7 +17,7 @@ from app.validation import check_duplicate, estimate_size, evaluate, ops_hash
 from app.worker import publish
 from app.world_state import get_state, simulate_ops
 
-mcp = FastMCP("InsideDCPulse")
+mcp = FastMCP("InsideDCPulse", stateless_http=True)
 
 READ = settings.rate_limit_read_per_window
 WRITE = settings.rate_limit_vision_per_window
