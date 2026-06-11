@@ -3,14 +3,21 @@ import asyncpg
 from app.config import settings
 
 
-async def create_agent(pool: asyncpg.Pool, agent_id: str, name: str, api_key_hash: str) -> dict:
+async def create_agent(
+    pool: asyncpg.Pool,
+    agent_id: str,
+    name: str,
+    api_key_hash: str,
+    reputation: float = 0.5,
+    created_via: str = "admin",
+) -> dict:
     row = await pool.fetchrow(
         """
-        INSERT INTO agents (id, name, api_key_hash)
-        VALUES ($1, $2, $3)
-        RETURNING id, name, reputation
+        INSERT INTO agents (id, name, api_key_hash, reputation, created_via)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name, reputation, created_via
         """,
-        agent_id, name, api_key_hash,
+        agent_id, name, api_key_hash, reputation, created_via,
     )
     return dict(row)
 
