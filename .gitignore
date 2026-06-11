@@ -4,3 +4,4 @@ __pycache__/
 docker/.env
 docker/nginx/conf.d/insidedcpulse.conf
 .venv/
+.worktrees/
