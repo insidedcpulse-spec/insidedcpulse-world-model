@@ -114,3 +114,29 @@ def test_rejects_invalid_incident_severity():
     ok, msg = check_domain_consistency(op, None)
     assert ok is False
     assert msg == "'severity' must be one of ['low', 'medium', 'high', 'critical'], got 'exploding'"
+
+
+def test_set_deployment_status_valid():
+    op = WorldOp(op="set", key="deployment.dep1.status", value="in_progress")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_invalid_deployment_status():
+    op = WorldOp(op="set", key="deployment.dep1.status", value="exploding")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert "must be one of" in msg
+
+
+def test_rejects_deployment_progress_above_max():
+    op = WorldOp(op="set", key="deployment.dep1.progress", value=150)
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "value 150 for 'progress' above maximum 100"
+
+
+def test_rejects_deployment_progress_increment_overflow():
+    op = WorldOp(op="increment", key="deployment.dep1.progress", value=1000)
+    ok, msg = check_domain_consistency(op, 50)
+    assert ok is False
+    assert msg == "value 1050 for 'progress' above maximum 100"

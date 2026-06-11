@@ -53,3 +53,11 @@ def test_get_field_spec_incident_severity():
         "type": "enum",
         "values": ["low", "medium", "high", "critical"],
     }
+
+
+def test_parse_key_valid_deployment():
+    assert parse_key("deployment.dep1.status") == KeyParts("deployment", "dep1", "status")
+
+
+def test_get_field_spec_deployment_progress():
+    assert get_field_spec("deployment", "progress") == {"type": "number", "min": 0, "max": 100}

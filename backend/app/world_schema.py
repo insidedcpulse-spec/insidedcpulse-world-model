@@ -38,6 +38,12 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "affected_region": {"type": "string"},
         "notes": {"type": "object"},
     },
+    "deployment": {
+        "status": {"type": "enum", "values": ["pending", "in_progress", "done", "failed", "rolled_back"]},
+        "version": {"type": "string"},
+        "target_service": {"type": "string"},
+        "progress": {"type": "number", "min": 0, "max": 100},
+    },
 }
 
 
