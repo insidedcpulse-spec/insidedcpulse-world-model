@@ -38,6 +38,7 @@ def _extract_client_ip(scope: Scope) -> str:
         return client[0]
     return "unknown"
 
+
 # All `method: Literal[...]` values across mcp.types request/notification models.
 VALID_METHODS = {
     "completion/complete",
