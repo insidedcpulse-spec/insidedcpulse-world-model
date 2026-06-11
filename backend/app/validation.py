@@ -13,6 +13,7 @@ import redis.asyncio as redis
 
 from app.config import settings
 from app.schemas import VisionRequest, WorldOp
+from app.world_schema import ENTITY_SCHEMAS, parse_key
 
 
 def ops_hash(ops: list[WorldOp]) -> str:
@@ -37,6 +38,78 @@ def estimate_size(payload: VisionRequest) -> int:
 
 def _is_numeric(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _validate_field_value(field: str, spec: dict, value) -> str | None:
+    """Return an error message if value violates the field spec, else None."""
+    field_type = spec["type"]
+
+    if field_type in ("number", "integer"):
+        if not _is_numeric(value):
+            return f"'{field}' must be a number, got {value!r}"
+        if field_type == "integer" and float(value) != int(value):
+            return f"'{field}' must be an integer, got {value!r}"
+        if "min" in spec and value < spec["min"]:
+            return f"value {value} for '{field}' below minimum {spec['min']}"
+        if "max" in spec and value > spec["max"]:
+            return f"value {value} for '{field}' above maximum {spec['max']}"
+        return None
+
+    if field_type == "string":
+        if not isinstance(value, str):
+            return f"'{field}' must be a string, got {value!r}"
+        return None
+
+    if field_type == "enum":
+        if value not in spec["values"]:
+            return f"'{field}' must be one of {spec['values']}, got {value!r}"
+        return None
+
+    if field_type == "object":
+        if not isinstance(value, dict):
+            return f"'{field}' must be an object, got {value!r}"
+        return None
+
+    return None
+
+
+def check_domain_consistency(op: WorldOp, current) -> tuple[bool, str | None]:
+    """Check an op against the domain key schema (app.world_schema).
+
+    `current` is the already-deserialized current value of op.key (or
+    None). `delete` is always allowed regardless of namespace.
+    """
+    if op.op == "delete":
+        return True, None
+
+    parts = parse_key(op.key)
+    if parts is None:
+        return False, f"unknown key namespace '{op.key}'"
+
+    spec = ENTITY_SCHEMAS[parts.entity].get(parts.field)
+    if spec is None:
+        return False, f"unknown field '{parts.field}' for entity '{parts.entity}'"
+
+    field_type = spec["type"]
+
+    if op.op == "merge" and field_type != "object":
+        return False, f"op 'merge' not allowed on field '{parts.field}' (type '{field_type}')"
+    if op.op == "increment" and field_type not in ("number", "integer"):
+        return False, f"op 'increment' not allowed on field '{parts.field}' (type '{field_type}')"
+
+    if op.op == "increment":
+        result = (current or 0) + op.value
+    elif op.op == "merge":
+        base = current if isinstance(current, dict) else {}
+        result = {**base, **op.value}
+    else:
+        result = op.value
+
+    error = _validate_field_value(parts.field, spec, result)
+    if error:
+        return False, error
+
+    return True, None
 
 
 async def check_op_consistency(pool: asyncpg.Pool, op: WorldOp) -> tuple[bool, str | None]:
