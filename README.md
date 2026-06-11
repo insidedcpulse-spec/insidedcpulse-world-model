@@ -113,6 +113,7 @@ Example ops for the new entities:
   { "op": "set", "key": "alert.a1.severity", "value": "warning" }
 ]
 ```
+
 `delete` is always allowed. `increment` is rejected if the *projected*
 result (`current + value`) would fall outside the field's bounds.
 
