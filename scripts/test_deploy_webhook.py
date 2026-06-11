@@ -110,6 +110,22 @@ class TestSmokeGet(unittest.TestCase):
         self.assertTrue(ok)
 
     @patch("deploy_webhook.urllib.request.build_opener")
+    def test_check_callback_body_content(self, mock_build_opener):
+        resp = MagicMock(status=200)
+        resp.read.return_value = b"<html>...FAQ...</html>"
+        mock_build_opener.return_value.open.return_value = resp
+        ok, _ = deploy_webhook._smoke_get("/", 200, lambda r: "FAQ" in r.read().decode())
+        self.assertTrue(ok)
+
+    @patch("deploy_webhook.urllib.request.build_opener")
+    def test_check_callback_fails_on_missing_body_content(self, mock_build_opener):
+        resp = MagicMock(status=200)
+        resp.read.return_value = b"<html>Internal Server Error</html>"
+        mock_build_opener.return_value.open.return_value = resp
+        ok, _ = deploy_webhook._smoke_get("/", 200, lambda r: "FAQ" in r.read().decode())
+        self.assertFalse(ok)
+
+    @patch("deploy_webhook.urllib.request.build_opener")
     def test_check_callback_fails_on_redirect_loop(self, mock_build_opener):
         resp = MagicMock(status=301)
         resp.headers.get.return_value = "https://insidedcpulse.com/grafana/"
@@ -157,7 +173,14 @@ class TestRunSmokeChecks(unittest.TestCase):
         names = {r["name"] for r in results}
         self.assertEqual(
             names,
-            {"healthz", "status_page", "grafana_no_redirect_loop", "mcp_tools_list", "mcp_unknown_method_handled"},
+            {
+                "healthz",
+                "status_page",
+                "landing_page",
+                "grafana_no_redirect_loop",
+                "mcp_tools_list",
+                "mcp_unknown_method_handled",
+            },
         )
         self.assertTrue(all(r["ok"] for r in results))
 

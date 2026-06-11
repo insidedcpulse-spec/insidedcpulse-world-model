@@ -92,12 +92,13 @@ def _smoke_post(path: str, payload: dict, expect_status: int, body_contains: str
 
 def run_smoke_checks() -> list[dict]:
     """Post-deploy checks for the regressions we've already hit in prod:
-    Grafana redirect loop on /grafana/ and the /mcp/ session-manager crash
-    on an unrecognized JSON-RPC method.
+    Grafana redirect loop on /grafana/, the /mcp/ session-manager crash
+    on an unrecognized JSON-RPC method, and the static landing page at /.
     """
     checks = [
         ("healthz", lambda: _smoke_get("/healthz", 200)),
         ("status_page", lambda: _smoke_get("/status", 200)),
+        ("landing_page", lambda: _smoke_get("/", 200, lambda r: "FAQ" in r.read().decode())),
         ("grafana_no_redirect_loop", lambda: _smoke_get(
             "/grafana/", 302, lambda r: r.headers.get("Location", "").endswith("/grafana/login")
         )),
