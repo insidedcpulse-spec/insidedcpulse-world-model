@@ -78,6 +78,10 @@ def check_domain_consistency(op: WorldOp, current) -> tuple[bool, str | None]:
 
     `current` is the already-deserialized current value of op.key (or
     None). `delete` is always allowed regardless of namespace.
+
+    Assumes the caller (check_op_consistency) has already validated that
+    `current` and `op.value` are type-compatible with `op.op` (numeric for
+    increment, dict-or-None for merge) via its generic checks.
     """
     if op.op == "delete":
         return True, None
@@ -117,8 +121,7 @@ async def check_op_consistency(pool: asyncpg.Pool, op: WorldOp) -> tuple[bool, s
     row = await pool.fetchrow("SELECT value FROM world_state WHERE key = $1", op.key)
     current = row["value"] if row else None
     if current is not None:
-        import json as _json
-        current = _json.loads(current) if isinstance(current, str) else current
+        current = json.loads(current) if isinstance(current, str) else current
 
     if op.op == "delete":
         return True, None
@@ -128,21 +131,18 @@ async def check_op_consistency(pool: asyncpg.Pool, op: WorldOp) -> tuple[bool, s
             return False, f"increment on '{op.key}' requires a numeric value"
         if current is not None and not _is_numeric(current):
             return False, f"key '{op.key}' is not numeric, cannot increment"
-        return True, None
-
-    if op.op == "merge":
+    elif op.op == "merge":
         if not isinstance(op.value, dict):
             return False, f"merge on '{op.key}' requires an object value"
         if current is not None and not isinstance(current, dict):
             return False, f"key '{op.key}' is not an object, cannot merge"
-        return True, None
-
-    if op.op == "set":
+    elif op.op == "set":
         if op.value is None:
             return False, f"set on '{op.key}' requires a non-null value"
-        return True, None
+    else:
+        return False, f"unknown op '{op.op}'"
 
-    return False, f"unknown op '{op.op}'"
+    return check_domain_consistency(op, current)
 
 
 async def check_duplicate(r: redis.Redis, agent_id: str, payload: VisionRequest) -> bool:
