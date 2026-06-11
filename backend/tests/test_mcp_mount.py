@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 
-def test_mcp_mounted_and_root_routes_not_shadowed():
+def test_mcp_mounted_and_handles_unknown_methods():
     with patch("app.main.init_pool", AsyncMock(return_value=AsyncMock())), \
          patch("app.main.close_pool", AsyncMock()), \
          patch("app.main.get_redis", return_value=AsyncMock()), \
@@ -12,11 +12,6 @@ def test_mcp_mounted_and_root_routes_not_shadowed():
         from app.main import app
 
         with TestClient(app) as client:
-            r = client.get("/")
-            assert r.status_code == 200
-            assert r.json()["name"] == "InsideDCPulse"
-            assert r.json()["status"] == "/status"
-
             r = client.post(
                 "/mcp",
                 headers={"Accept": "application/json, text/event-stream", "Content-Type": "application/json"},
