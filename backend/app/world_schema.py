@@ -44,6 +44,11 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "target_service": {"type": "string"},
         "progress": {"type": "number", "min": 0, "max": 100},
     },
+    "team": {
+        "on_call": {"type": "enum", "values": ["active", "off"]},
+        "headcount": {"type": "integer", "min": 0},
+        "owned_services": {"type": "object"},
+    },
 }
 
 

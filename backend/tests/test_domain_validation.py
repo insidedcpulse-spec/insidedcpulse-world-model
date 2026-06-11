@@ -140,3 +140,27 @@ def test_rejects_deployment_progress_increment_overflow():
     ok, msg = check_domain_consistency(op, 50)
     assert ok is False
     assert msg == "value 1050 for 'progress' above maximum 100"
+
+
+def test_set_team_on_call_valid():
+    op = WorldOp(op="set", key="team.sre.on_call", value="active")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_invalid_team_on_call():
+    op = WorldOp(op="set", key="team.sre.on_call", value="exploding")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert "must be one of" in msg
+
+
+def test_increment_team_headcount_valid():
+    op = WorldOp(op="increment", key="team.sre.headcount", value=2)
+    assert check_domain_consistency(op, 5) == (True, None)
+
+
+def test_rejects_team_headcount_increment_below_min():
+    op = WorldOp(op="increment", key="team.sre.headcount", value=-10)
+    ok, msg = check_domain_consistency(op, 5)
+    assert ok is False
+    assert msg == "value -5 for 'headcount' below minimum 0"

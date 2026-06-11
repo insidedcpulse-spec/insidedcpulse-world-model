@@ -61,3 +61,11 @@ def test_parse_key_valid_deployment():
 
 def test_get_field_spec_deployment_progress():
     assert get_field_spec("deployment", "progress") == {"type": "number", "min": 0, "max": 100}
+
+
+def test_parse_key_valid_team():
+    assert parse_key("team.sre.on_call") == KeyParts("team", "sre", "on_call")
+
+
+def test_get_field_spec_team_headcount():
+    assert get_field_spec("team", "headcount") == {"type": "integer", "min": 0}
