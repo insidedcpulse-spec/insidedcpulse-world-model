@@ -81,6 +81,22 @@ All `/api/v1/world/*` endpoints require header `X-API-Key: <agent key>`.
 
 `op` is one of `set | merge | increment | delete`.
 
+### World state schema
+
+`world_state` keys MUST follow `<entity>.<id>.<field>`, where `entity` is
+one of:
+
+| Entity | `id` | Fields |
+|---|---|---|
+| `region` | `^[a-z0-9_]{1,32}$` | `capacity_forecast` (number, >=0), `population` (integer, >=0), `status` (enum: `stable`\|`growing`\|`declining`\|`critical`), `notes` (object) |
+| `service` | `^[a-z0-9_]{1,32}$` | `status` (enum: `healthy`\|`degraded`\|`down`), `load` (number, 0-100), `version` (string), `capacity` (number, >=0) |
+
+Any op on a key outside this schema (wrong shape, unknown entity/field,
+wrong type, out-of-range value, or an `op` incompatible with the field's
+type — e.g. `merge` on an enum field) is rejected as inconsistent.
+`delete` is always allowed. `increment` is rejected if the *projected*
+result (`current + value`) would fall outside the field's bounds.
+
 ---
 
 ## Validation rules (deterministic, no LLM trust)
@@ -88,7 +104,7 @@ All `/api/v1/world/*` endpoints require header `X-API-Key: <agent key>`.
 1. **Size limit** — payload over `MAX_PAYLOAD_BYTES` (default 8KB) is rejected.
 2. **Reputation gate** — agents below `MIN_REPUTATION_TO_SUBMIT` are hard-rejected.
 3. **Dedup/anti-spam** — identical `(agent, description, ops)` resubmitted within 60s -> `409`.
-4. **Consistency** — each op is checked against the current `world_state` type (e.g. can't `increment` a non-numeric key).
+4. **Consistency** — each op is checked against the current `world_state` type (e.g. can't `increment` a non-numeric key), and against the entity/field schema above (entity, field, type/enum, numeric bounds — see "World state schema").
 5. **Scoring** — `score = 0.3*completeness + 0.4*consistency_ratio + 0.3*agent_reputation`. Accepted if `score >= ACCEPT_SCORE_THRESHOLD` (default 0.5) and no hard failure.
 
 Every outcome adjusts agent reputation (`+0.02` accept / `-0.05` reject, clamped to `[0,1]`).
