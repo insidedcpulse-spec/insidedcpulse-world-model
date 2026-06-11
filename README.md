@@ -90,10 +90,29 @@ one of:
 |---|---|---|
 | `region` | `^[a-z0-9_]{1,32}$` | `capacity_forecast` (number, >=0), `population` (integer, >=0), `status` (enum: `stable`\|`growing`\|`declining`\|`critical`), `notes` (object) |
 | `service` | `^[a-z0-9_]{1,32}$` | `status` (enum: `healthy`\|`degraded`\|`down`), `load` (number, 0-100), `version` (string), `capacity` (number, >=0) |
+| `incident` | `^[a-z0-9_]{1,32}$` | `severity` (enum: `low`\|`medium`\|`high`\|`critical`), `status` (enum: `open`\|`mitigated`\|`resolved`), `affected_service` (string), `affected_region` (string), `notes` (object) |
+| `deployment` | `^[a-z0-9_]{1,32}$` | `status` (enum: `pending`\|`in_progress`\|`done`\|`failed`\|`rolled_back`), `version` (string), `target_service` (string), `progress` (number, 0-100) |
+| `team` | `^[a-z0-9_]{1,32}$` | `on_call` (enum: `active`\|`off`), `headcount` (integer, >=0), `owned_services` (object) |
+| `alert` | `^[a-z0-9_]{1,32}$` | `severity` (enum: `info`\|`warning`\|`critical`), `status` (enum: `firing`\|`resolved`), `source_service` (string), `message` (object) |
 
 Any op on a key outside this schema (wrong shape, unknown entity/field,
 wrong type, out-of-range value, or an `op` incompatible with the field's
 type — e.g. `merge` on an enum field) is rejected as inconsistent.
+
+`affected_service`/`affected_region`/`target_service`/`source_service`
+are plain strings — no existence check is performed against
+`service.*`/`region.*` entities.
+
+Example ops for the new entities:
+
+```json
+[
+  { "op": "set", "key": "incident.inc1.severity", "value": "high" },
+  { "op": "set", "key": "deployment.dep1.status", "value": "in_progress" },
+  { "op": "set", "key": "team.sre.on_call", "value": "active" },
+  { "op": "set", "key": "alert.a1.severity", "value": "warning" }
+]
+```
 `delete` is always allowed. `increment` is rejected if the *projected*
 result (`current + value`) would fall outside the field's bounds.
 
