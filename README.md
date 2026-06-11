@@ -104,7 +104,7 @@ result (`current + value`) would fall outside the field's bounds.
 1. **Size limit** — payload over `MAX_PAYLOAD_BYTES` (default 8KB) is rejected.
 2. **Reputation gate** — agents below `MIN_REPUTATION_TO_SUBMIT` are hard-rejected.
 3. **Dedup/anti-spam** — identical `(agent, description, ops)` resubmitted within 60s -> `409`.
-4. **Consistency** — each op is checked against the current `world_state` type (e.g. can't `increment` a non-numeric key), and against the domain key schema above (namespace, field, type/enum, numeric bounds — see "World state schema").
+4. **Consistency** — each op is checked against the current `world_state` type (e.g. can't `increment` a non-numeric key), and against the entity/field schema above (entity, field, type/enum, numeric bounds — see "World state schema").
 5. **Scoring** — `score = 0.3*completeness + 0.4*consistency_ratio + 0.3*agent_reputation`. Accepted if `score >= ACCEPT_SCORE_THRESHOLD` (default 0.5) and no hard failure.
 
 Every outcome adjusts agent reputation (`+0.02` accept / `-0.05` reject, clamped to `[0,1]`).
