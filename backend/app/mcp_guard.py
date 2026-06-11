@@ -14,10 +14,29 @@ JSON-RPC ``-32601 Method not found`` error instead of letting the SDK crash.
 
 import json
 import logging
+from contextvars import ContextVar
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger("insidedcpulse")
+
+_client_ip_var: ContextVar[str] = ContextVar("client_ip", default="unknown")
+
+
+def get_client_ip() -> str:
+    """Return the client IP captured for the current /mcp request."""
+    return _client_ip_var.get()
+
+
+def _extract_client_ip(scope: Scope) -> str:
+    headers = dict(scope.get("headers") or [])
+    forwarded = headers.get(b"x-forwarded-for")
+    if forwarded:
+        return forwarded.decode("latin-1").split(",")[0].strip()
+    client = scope.get("client")
+    if client:
+        return client[0]
+    return "unknown"
 
 # All `method: Literal[...]` values across mcp.types request/notification models.
 VALID_METHODS = {
@@ -53,6 +72,9 @@ class MCPMethodGuardMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            _client_ip_var.set(_extract_client_ip(scope))
+
         if scope["type"] != "http" or scope["method"] != "POST":
             await self.app(scope, receive, send)
             return
