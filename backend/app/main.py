@@ -64,16 +64,5 @@ async def metrics():
     return metrics_response()
 
 
-@app.get("/", tags=["meta"])
-async def root():
-    return {
-        "name": "InsideDCPulse",
-        "description": "Event-Sourced World Model for Multi-LLM Agents",
-        "docs": "/docs",
-        "world_stream": "/ws/world-stream",
-        "status": "/status",
-    }
-
-
 # Mounted last so it only matches paths not already handled by the routes above.
 app.mount("/", MCPMethodGuardMiddleware(mcp.streamable_http_app()), name="mcp")
