@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.mcp_server import get_world_state
+from app.mcp_server import get_world_state, register_agent
 from app.rate_limit import RateLimitExceeded
 
 AGENT = {
@@ -249,3 +249,45 @@ async def test_get_world_memory_rate_limited():
          patch("app.mcp_server.get_pool", lambda: AsyncMock()):
         with pytest.raises(ValueError, match="rate limit exceeded"):
             await get_world_memory(api_key="key")
+
+
+@pytest.mark.asyncio
+async def test_register_agent_success():
+    expected = {"agent_id": "my-agent-ab12cd", "api_key": "secret-key", "reputation": 0.3}
+
+    with patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_client_ip", return_value="203.0.113.5"), \
+         patch("app.mcp_server.register_self_agent", AsyncMock(return_value=expected)) as register_mock:
+        result = await register_agent(name="my-agent")
+
+    assert result == expected
+    assert register_mock.call_args[0][1:] == ("my-agent", "203.0.113.5")
+
+
+@pytest.mark.asyncio
+async def test_register_agent_rate_limited():
+    with patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_client_ip", return_value="203.0.113.5"), \
+         patch("app.mcp_server.register_self_agent", AsyncMock(side_effect=RateLimitExceeded(5, 86400))):
+        with pytest.raises(ValueError):
+            await register_agent(name="my-agent")
+
+
+@pytest.mark.asyncio
+async def test_register_agent_returned_key_resolves_to_self_serve_agent():
+    from app.security import hash_api_key
+
+    captured = {}
+
+    async def fake_create_agent(pool, agent_id, name, api_key_hash, reputation, created_via):
+        captured["hash"] = api_key_hash
+        return {"id": agent_id, "name": name, "reputation": reputation, "created_via": created_via}
+
+    with patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_client_ip", return_value="203.0.113.5"), \
+         patch("app.agent_registration.enforce_ip_rate_limit", AsyncMock()), \
+         patch("app.agent_registration.create_agent", AsyncMock(side_effect=fake_create_agent)):
+        result = await register_agent(name="my-agent")
+
+    assert hash_api_key(result["api_key"]) == captured["hash"]
+    assert result["reputation"] == 0.3

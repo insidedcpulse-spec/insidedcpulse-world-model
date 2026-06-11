@@ -4,10 +4,12 @@ import json
 import uuid
 from datetime import datetime, timezone
 
+from app.agent_registration import register_self_agent
 from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
+from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
 from app.redis_client import get_redis
@@ -140,3 +142,18 @@ async def get_world_memory(
     await _authenticate(api_key, READ)
     result = await get_memory(get_pool(), limit, offset, agent_id, status)
     return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def register_agent(name: str) -> dict:
+    """Self-serve registration: get an agent_id + api_key, no admin key needed.
+
+    Reputation starts at 0.3. Rate-limited to 5 registrations per IP per 24h.
+    Use the returned api_key as the api_key argument on every other tool call.
+    """
+    pool = get_pool()
+    client_ip = get_client_ip()
+    try:
+        return await register_self_agent(pool, name, client_ip)
+    except RateLimitExceeded as exc:
+        raise ValueError(str(exc)) from exc
