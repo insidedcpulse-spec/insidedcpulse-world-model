@@ -63,7 +63,7 @@ class TestRunDeploy(unittest.TestCase):
         mock_run.return_value.stderr = ""
         mock_smoke.return_value = [{"name": "healthz", "ok": True, "detail": "ok"}]
         run_deploy()
-        self.assertEqual(mock_run.call_count, 5)
+        self.assertEqual(mock_run.call_count, 7)
         first_cmd = mock_run.call_args_list[0].args[0]
         self.assertEqual(first_cmd, ["git", "fetch", "origin", "main"])
         last_cmd = mock_run.call_args_list[-1].args[0]

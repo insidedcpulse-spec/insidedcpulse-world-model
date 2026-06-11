@@ -32,8 +32,13 @@ DOCKER_DIR = f"{REPO_DIR}/docker"
 DEPLOY_STEPS = [
     (["git", "fetch", "origin", "main"], REPO_DIR),
     (["git", "reset", "--hard", "origin/main"], REPO_DIR),
+    # insidedcpulse.conf is gitignored (live nginx config); insidedcpulse.conf.ssl
+    # is the tracked source of truth. Re-sync on every deploy so nginx changes
+    # pushed via .conf.ssl actually take effect (recurring gotcha otherwise).
+    (["cp", "-f", "docker/nginx/conf.d/insidedcpulse.conf.ssl", "docker/nginx/conf.d/insidedcpulse.conf"], REPO_DIR),
     (["docker", "compose", "build", "api"], DOCKER_DIR),
     (["docker", "compose", "up", "-d", "--remove-orphans"], DOCKER_DIR),
+    (["docker", "compose", "restart", "nginx"], DOCKER_DIR),
     (["docker", "image", "prune", "-f"], DOCKER_DIR),
 ]
 
