@@ -31,6 +31,13 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "version": {"type": "string"},
         "capacity": {"type": "number", "min": 0},
     },
+    "incident": {
+        "severity": {"type": "enum", "values": ["low", "medium", "high", "critical"]},
+        "status": {"type": "enum", "values": ["open", "mitigated", "resolved"]},
+        "affected_service": {"type": "string"},
+        "affected_region": {"type": "string"},
+        "notes": {"type": "object"},
+    },
 }
 
 

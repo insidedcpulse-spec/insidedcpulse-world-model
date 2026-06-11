@@ -102,3 +102,15 @@ def test_rejects_increment_on_object_field():
     ok, msg = check_domain_consistency(op, {"a": 1})
     assert ok is False
     assert msg == "op 'increment' not allowed on field 'notes' (type 'object')"
+
+
+def test_set_incident_severity_valid():
+    op = WorldOp(op="set", key="incident.inc1.severity", value="high")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_invalid_incident_severity():
+    op = WorldOp(op="set", key="incident.inc1.severity", value="exploding")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "'severity' must be one of ['low', 'medium', 'high', 'critical'], got 'exploding'"

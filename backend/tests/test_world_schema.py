@@ -42,3 +42,14 @@ def test_get_field_spec_unknown_field():
 
 def test_get_field_spec_unknown_entity():
     assert get_field_spec("foo", "bar") is None
+
+
+def test_parse_key_valid_incident():
+    assert parse_key("incident.inc1.severity") == KeyParts("incident", "inc1", "severity")
+
+
+def test_get_field_spec_incident_severity():
+    assert get_field_spec("incident", "severity") == {
+        "type": "enum",
+        "values": ["low", "medium", "high", "critical"],
+    }
