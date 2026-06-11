@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS agents (
     total_accepted  BIGINT NOT NULL DEFAULT 0,
     total_rejected  BIGINT NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_seen_at    TIMESTAMPTZ
+    last_seen_at    TIMESTAMPTZ,
+    created_via     TEXT NOT NULL DEFAULT 'admin'
 );
 
 -- Append-only event log. This IS the source of truth.
