@@ -188,7 +188,7 @@ async def evaluate(
             reasons.append(msg or f"op on '{op.key}' inconsistent")
     consistency_ratio = consistent / len(payload.ops) if payload.ops else 0.0
     if consistency_ratio < 1.0:
-        hard_fail = hard_fail or consistency_ratio == 0.0
+        hard_fail = True
 
     # 4. Completeness (already enforced by pydantic, but score it anyway)
     completeness = 1.0 if payload.description.strip() and payload.ops else 0.0
