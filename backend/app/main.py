@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import close_pool, get_pool, init_pool
+from app.mcp_guard import MCPMethodGuardMiddleware
 from app.mcp_server import mcp
 from app.metrics import MetricsMiddleware, metrics_response
 from app.redis_client import close_redis, get_redis
@@ -75,4 +76,4 @@ async def root():
 
 
 # Mounted last so it only matches paths not already handled by the routes above.
-app.mount("/", mcp.streamable_http_app(), name="mcp")
+app.mount("/", MCPMethodGuardMiddleware(mcp.streamable_http_app()), name="mcp")
