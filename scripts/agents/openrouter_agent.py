@@ -89,3 +89,28 @@ def ensure_agent(env: dict[str, str]) -> tuple[str, str]:
     env["AGENT_API_KEY"] = agent_api_key
     save_env(ENV_PATH, env)
     return agent_id, agent_api_key
+
+
+def get_world_state(api_key: str) -> dict:
+    resp = requests.get(
+        f"{BASE_URL}/api/v1/world/state",
+        headers={"X-API-Key": api_key},
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        print(f"get world state failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+    return resp.json()
+
+
+def get_world_memory(api_key: str, limit: int = 10) -> dict:
+    resp = requests.get(
+        f"{BASE_URL}/api/v1/world/memory",
+        headers={"X-API-Key": api_key},
+        params={"limit": limit},
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        print(f"get world memory failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+    return resp.json()
