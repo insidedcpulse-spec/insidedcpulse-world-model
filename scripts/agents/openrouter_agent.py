@@ -67,7 +67,7 @@ def save_env(path: Path, env: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
-def ensure_agent(env: dict[str, str]) -> tuple[str, str]:
+def ensure_agent(env: dict[str, str], env_path: Path) -> tuple[str, str]:
     agent_id = env.get("AGENT_ID", "")
     agent_api_key = env.get("AGENT_API_KEY", "")
     if agent_id and agent_api_key:
@@ -75,7 +75,7 @@ def ensure_agent(env: dict[str, str]) -> tuple[str, str]:
 
     resp = requests.post(
         f"{BASE_URL}/api/v1/agents/register-self",
-        json={"name": AGENT_NAME},
+        json={"name": env.get("AGENT_NAME", AGENT_NAME)},
         timeout=30,
     )
     if resp.status_code >= 300:
@@ -87,7 +87,7 @@ def ensure_agent(env: dict[str, str]) -> tuple[str, str]:
     agent_api_key = data["api_key"]
     env["AGENT_ID"] = agent_id
     env["AGENT_API_KEY"] = agent_api_key
-    save_env(ENV_PATH, env)
+    save_env(env_path, env)
     return agent_id, agent_api_key
 
 
@@ -192,15 +192,16 @@ def propose_vision(api_key: str, payload: dict) -> dict:
 
 
 def main() -> None:
-    env = load_env(ENV_PATH)
+    env_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ENV_PATH
+    env = load_env(env_path)
 
     openrouter_key = env.get("OPENROUTER_API_KEY", "")
     if not openrouter_key:
-        print(f"OPENROUTER_API_KEY missing from {ENV_PATH}")
+        print(f"OPENROUTER_API_KEY missing from {env_path}")
         sys.exit(1)
     model = env.get("OPENROUTER_MODEL") or DEFAULT_MODEL
 
-    agent_id, agent_api_key = ensure_agent(env)
+    agent_id, agent_api_key = ensure_agent(env, env_path)
     print(f"== agent: {agent_id} ==")
 
     world_state = get_world_state(agent_api_key)
