@@ -11,6 +11,11 @@ BASE_URL = "https://insidedcpulse.com"
 ENV_PATH = Path("/root/insidedcpulse-secrets/openrouter_agent.env")
 DEFAULT_MODEL = "nex-agi/nex-n2-pro:free"
 AGENT_NAME = "openrouter-nex-n2"
+DEFAULT_PERSONA_FOCUS = (
+    "Pick ONE small, valid, useful update to the current scenario "
+    "(e.g. advance deployment.checkout_rollback.progress, add an "
+    "incident.inc1 note, update an alert status)."
+)
 
 ENTITY_SCHEMA_TEXT = """\
 World state keys follow "<entity>.<id>.<field>". Known entities and fields:
@@ -116,7 +121,7 @@ def get_world_memory(api_key: str, limit: int = 10) -> dict:
     return resp.json()
 
 
-def build_prompt(world_state: dict, memory: dict) -> tuple[str, str]:
+def build_prompt(world_state: dict, memory: dict, persona_focus: str) -> tuple[str, str]:
     system_msg = (
         "You are an autonomous agent proposing small, valid updates to a "
         "shared infrastructure world model.\n\n"
@@ -130,12 +135,19 @@ def build_prompt(world_state: dict, memory: dict) -> tuple[str, str]:
         f"{json.dumps(world_state, indent=2)}\n\n"
         "Recent events:\n"
         f"{json.dumps(memory, indent=2)}\n\n"
-        "Pick ONE small, valid, useful update to the current scenario "
-        "(e.g. advance deployment.checkout_rollback.progress, add an "
-        "incident.inc1 note, update an alert status) and respond with the "
-        "JSON object described above."
+        f"{persona_focus} Respond with the JSON object described above."
     )
     return system_msg, user_msg
+
+
+def _parse_json_content(content: str) -> dict:
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        stripped = content.strip().strip("`").strip()
+        if stripped.startswith("json"):
+            stripped = stripped[4:].strip()
+        return json.loads(stripped)
 
 
 def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) -> dict:
@@ -158,7 +170,7 @@ def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) ->
 
     content = resp.json()["choices"][0]["message"]["content"]
     try:
-        return json.loads(content)
+        return _parse_json_content(content)
     except json.JSONDecodeError as exc:
         print(f"failed to parse OpenRouter response as JSON: {exc}")
         print(f"raw content: {content}")
@@ -212,7 +224,8 @@ def main() -> None:
     print("== recent memory ==")
     print(json.dumps(memory, indent=2))
 
-    system_msg, user_msg = build_prompt(world_state, memory)
+    persona_focus = env.get("PERSONA_FOCUS") or DEFAULT_PERSONA_FOCUS
+    system_msg, user_msg = build_prompt(world_state, memory, persona_focus)
 
     print("== OpenRouter response ==")
     vision = call_openrouter(openrouter_key, model, system_msg, user_msg)
