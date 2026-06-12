@@ -168,7 +168,12 @@ def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) ->
         print(f"OpenRouter call failed: {resp.status_code} {resp.text}")
         sys.exit(1)
 
-    content = resp.json()["choices"][0]["message"]["content"]
+    message = resp.json()["choices"][0]["message"]
+    content = message["content"]
+    if content is None:
+        print("OpenRouter returned empty content")
+        print(f"raw message: {message}")
+        sys.exit(1)
     try:
         return _parse_json_content(content)
     except json.JSONDecodeError as exc:
