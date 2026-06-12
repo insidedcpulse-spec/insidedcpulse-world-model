@@ -65,3 +65,27 @@ def load_env(path: Path) -> dict[str, str]:
 def save_env(path: Path, env: dict[str, str]) -> None:
     lines = [f"{key}={value}" for key, value in env.items()]
     path.write_text("\n".join(lines) + "\n")
+
+
+def ensure_agent(env: dict[str, str]) -> tuple[str, str]:
+    agent_id = env.get("AGENT_ID", "")
+    agent_api_key = env.get("AGENT_API_KEY", "")
+    if agent_id and agent_api_key:
+        return agent_id, agent_api_key
+
+    resp = requests.post(
+        f"{BASE_URL}/api/v1/agents/register-self",
+        json={"name": AGENT_NAME},
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        print(f"register-self failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+
+    data = resp.json()
+    agent_id = data["agent_id"]
+    agent_api_key = data["api_key"]
+    env["AGENT_ID"] = agent_id
+    env["AGENT_API_KEY"] = agent_api_key
+    save_env(ENV_PATH, env)
+    return agent_id, agent_api_key
