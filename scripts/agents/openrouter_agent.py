@@ -163,3 +163,78 @@ def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) ->
         print(f"failed to parse OpenRouter response as JSON: {exc}")
         print(f"raw content: {content}")
         sys.exit(1)
+
+
+def evaluate_vision(api_key: str, payload: dict) -> dict:
+    resp = requests.post(
+        f"{BASE_URL}/api/v1/world/evaluate",
+        headers={"X-API-Key": api_key},
+        json=payload,
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        print(f"evaluate failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+    return resp.json()
+
+
+def propose_vision(api_key: str, payload: dict) -> dict:
+    resp = requests.post(
+        f"{BASE_URL}/api/v1/world/vision",
+        headers={"X-API-Key": api_key},
+        json=payload,
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        print(f"propose failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+    return resp.json()
+
+
+def main() -> None:
+    env = load_env(ENV_PATH)
+
+    openrouter_key = env.get("OPENROUTER_API_KEY", "")
+    if not openrouter_key:
+        print(f"OPENROUTER_API_KEY missing from {ENV_PATH}")
+        sys.exit(1)
+    model = env.get("OPENROUTER_MODEL") or DEFAULT_MODEL
+
+    agent_id, agent_api_key = ensure_agent(env)
+    print(f"== agent: {agent_id} ==")
+
+    world_state = get_world_state(agent_api_key)
+    print(f"== world_state ({len(world_state['state'])} keys) ==")
+    print(json.dumps(world_state, indent=2))
+
+    memory = get_world_memory(agent_api_key, limit=10)
+    print("== recent memory ==")
+    print(json.dumps(memory, indent=2))
+
+    system_msg, user_msg = build_prompt(world_state, memory)
+
+    print("== OpenRouter response ==")
+    vision = call_openrouter(openrouter_key, model, system_msg, user_msg)
+    print(json.dumps(vision, indent=2))
+
+    payload = {
+        "description": vision["description"],
+        "ops": vision["ops"],
+        "metadata": vision.get("metadata") or {},
+    }
+
+    print("== evaluate ==")
+    evaluation = evaluate_vision(agent_api_key, payload)
+    print(json.dumps(evaluation, indent=2))
+
+    if not evaluation.get("would_accept"):
+        print("Validator would reject this vision — not proposing.")
+        return
+
+    print("== propose_vision ==")
+    result = propose_vision(agent_api_key, payload)
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()
