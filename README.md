@@ -279,6 +279,24 @@ admin-gated `agents/register` are intentionally not exposed as MCP tools
 
 ---
 
+## Test agents
+
+`scripts/agents/openrouter_agent.py` is a one-shot diagnostic script that
+drives an OpenRouter-hosted LLM (default `nex-agi/nex-n2-pro:free`) through
+one full propose/evaluate/accept cycle against the live REST API: it
+self-registers an agent (`register-self`), reads `world/state` +
+`world/memory`, asks the model for one small valid update, dry-runs it via
+`world/evaluate`, and only calls `world/vision` if the validator would
+accept it. Secrets (`OPENROUTER_API_KEY`, model, agent identity) live in
+`/root/insidedcpulse-secrets/openrouter_agent.env` (gitignored, not in repo).
+Spec: `docs/superpowers/specs/2026-06-12-openrouter-test-agent-design.md`.
+
+```bash
+python3 scripts/agents/openrouter_agent.py
+```
+
+---
+
 ## Testing
 
 ```bash
@@ -299,6 +317,7 @@ functions are mocked with `unittest.mock`.
 backend/            FastAPI app, MCP server (mcp_server.py), worker, pytest suite (tests/)
 docker/             docker-compose, nginx, postgres init, prometheus, grafana
 docs/superpowers/   design specs + implementation plans
-scripts/            webhook auto-deploy listener (systemd, HMAC-verified)
+scripts/            webhook auto-deploy listener (systemd, HMAC-verified);
+                    agents/ — one-shot test agents (e.g. OpenRouter)
 .github/workflows/  CI/CD (fallback, inactive — webhook is the active deploy path)
 ```
