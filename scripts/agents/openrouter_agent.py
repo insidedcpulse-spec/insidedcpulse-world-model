@@ -114,3 +114,52 @@ def get_world_memory(api_key: str, limit: int = 10) -> dict:
         print(f"get world memory failed: {resp.status_code} {resp.text}")
         sys.exit(1)
     return resp.json()
+
+
+def build_prompt(world_state: dict, memory: dict) -> tuple[str, str]:
+    system_msg = (
+        "You are an autonomous agent proposing small, valid updates to a "
+        "shared infrastructure world model.\n\n"
+        f"{ENTITY_SCHEMA_TEXT}\n"
+        "Respond with ONLY a JSON object: "
+        '{"description": str, "ops": [...], "metadata": {}}. '
+        "No prose, no markdown fences."
+    )
+    user_msg = (
+        "Current world state:\n"
+        f"{json.dumps(world_state, indent=2)}\n\n"
+        "Recent events:\n"
+        f"{json.dumps(memory, indent=2)}\n\n"
+        "Pick ONE small, valid, useful update to the current scenario "
+        "(e.g. advance deployment.checkout_rollback.progress, add an "
+        "incident.inc1 note, update an alert status) and respond with the "
+        "JSON object described above."
+    )
+    return system_msg, user_msg
+
+
+def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) -> dict:
+    resp = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            "response_format": {"type": "json_object"},
+        },
+        timeout=60,
+    )
+    if resp.status_code >= 300:
+        print(f"OpenRouter call failed: {resp.status_code} {resp.text}")
+        sys.exit(1)
+
+    content = resp.json()["choices"][0]["message"]["content"]
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as exc:
+        print(f"failed to parse OpenRouter response as JSON: {exc}")
+        print(f"raw content: {content}")
+        sys.exit(1)
