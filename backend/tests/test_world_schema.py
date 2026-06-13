@@ -89,3 +89,15 @@ def test_get_field_spec_research_title():
 
 def test_get_field_spec_research_fetched_at():
     assert get_field_spec("research", "fetched_at") == {"type": "string"}
+
+
+def test_parse_key_valid_finding():
+    assert parse_key("finding.2506_01234.title") == KeyParts("finding", "2506_01234", "title")
+
+
+def test_get_field_spec_finding_relevance_score():
+    assert get_field_spec("finding", "relevance_score") == {"type": "number", "min": 0, "max": 1}
+
+
+def test_get_field_spec_finding_notes():
+    assert get_field_spec("finding", "notes") == {"type": "object"}

@@ -63,6 +63,17 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "url": {"type": "string"},
         "fetched_at": {"type": "string"},
     },
+    "finding": {
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "url": {"type": "string"},
+        "topics": {"type": "string"},
+        "relevance_score": {"type": "number", "min": 0, "max": 1},
+        "why_it_matters": {"type": "string"},
+        "source": {"type": "string"},
+        "fetched_at": {"type": "string"},
+        "notes": {"type": "object"},
+    },
 }
 
 

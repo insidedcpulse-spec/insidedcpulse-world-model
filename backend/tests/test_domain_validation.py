@@ -200,3 +200,39 @@ def test_rejects_merge_on_research_title():
     ok, msg = check_domain_consistency(op, None)
     assert ok is False
     assert msg == "op 'merge' not allowed on field 'title' (type 'string')"
+
+
+def test_set_finding_title_valid():
+    op = WorldOp(op="set", key="finding.2506_01234.title", value="A Paper About Agent Memory")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_finding_relevance_score_valid():
+    op = WorldOp(op="set", key="finding.2506_01234.relevance_score", value=0.82)
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_finding_relevance_score_above_max():
+    op = WorldOp(op="set", key="finding.2506_01234.relevance_score", value=1.5)
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "value 1.5 for 'relevance_score' above maximum 1"
+
+
+def test_rejects_finding_unknown_field():
+    op = WorldOp(op="set", key="finding.2506_01234.unknown_field", value="x")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "unknown field 'unknown_field' for entity 'finding'"
+
+
+def test_rejects_merge_on_finding_title():
+    op = WorldOp(op="merge", key="finding.2506_01234.title", value={"x": 1})
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'merge' not allowed on field 'title' (type 'string')"
+
+
+def test_merge_on_finding_notes_valid():
+    op = WorldOp(op="merge", key="finding.2506_01234.notes", value={"insight": "use event sourcing for agent memory"})
+    assert check_domain_consistency(op, None) == (True, None)
