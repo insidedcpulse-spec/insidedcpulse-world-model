@@ -44,6 +44,11 @@ def parse_entity_ref(value) -> EntityRef | None:
     return EntityRef(entity, entity_id)
 
 
+def _decode_jsonb(value) -> dict:
+    """asyncpg returns jsonb columns as str (no codec configured); world_state.py has the same pattern."""
+    return json.loads(value) if isinstance(value, str) else (value or {})
+
+
 def _node_type_and_label(node_id: str) -> tuple[str, str]:
     prefix, _, rest = node_id.partition(".")
     if prefix == "agent":
@@ -226,7 +231,7 @@ async def _rule_r2_alert_precedes_incident(conn, event_db_id, payload, applied) 
 
         affected_rows = await conn.fetch(RECENT_AFFECTED_SQL, "alert.%", event_db_id, CAUSAL_WINDOW)
         for row in affected_rows:
-            fields = (row["metadata"] or {}).get("fields", {})
+            fields = _decode_jsonb(row["metadata"]).get("fields", {})
             if fields.get("status") != "firing":
                 continue
             alert_id = row["target_node"]
@@ -267,7 +272,7 @@ async def _rule_r3_deployment_precedes_degradation(conn, event_db_id, payload, a
             deployment_id = row["target_node"]
             if deployment_id not in deployment_ids:
                 continue
-            fields = (row["metadata"] or {}).get("fields", {})
+            fields = _decode_jsonb(row["metadata"]).get("fields", {})
             if fields.get("status") not in ("in_progress", "done"):
                 continue
             dist = event_db_id - row["source_event_id"]

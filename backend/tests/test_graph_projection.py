@@ -323,7 +323,7 @@ async def test_r2_matches_alert_firing_for_same_service():
     conn = AsyncMock()
     conn.fetch.side_effect = [
         [{"target_node": "service.checkout"}],  # incident.inc3's REFERENCES targets
-        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": {"fields": {"status": "firing"}}}],
+        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": json.dumps({"fields": {"status": "firing"}})}],
         [{"target_node": "service.checkout"}],  # alert.a1's REFERENCES targets
     ]
     applied = {"incident.inc3.status": {"before": None, "after": "open"}}
@@ -367,7 +367,7 @@ async def test_r2_no_match_when_no_common_reference_target():
     conn = AsyncMock()
     conn.fetch.side_effect = [
         [{"target_node": "service.checkout"}],
-        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": {"fields": {"status": "firing"}}}],
+        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": json.dumps({"fields": {"status": "firing"}})}],
         [{"target_node": "service.payments"}],  # alert.a1 references a different service
     ]
     applied = {"incident.inc3.status": {"before": None, "after": "open"}}
@@ -382,7 +382,7 @@ async def test_r3_matches_deployment_in_progress_before_degradation():
     conn = AsyncMock()
     conn.fetch.side_effect = [
         [{"source_node": "deployment.checkout_v2"}],  # deployments referencing service.checkout
-        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": {"fields": {"status": "in_progress"}}}],
+        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": json.dumps({"fields": {"status": "in_progress"}})}],
     ]
     applied = {"service.checkout.status": {"before": "healthy", "after": "degraded"}}
 
@@ -424,7 +424,7 @@ async def test_r3_no_match_when_deployment_status_not_in_progress_or_done():
     conn = AsyncMock()
     conn.fetch.side_effect = [
         [{"source_node": "deployment.checkout_v2"}],
-        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": {"fields": {"status": "pending"}}}],
+        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": json.dumps({"fields": {"status": "pending"}})}],
     ]
     applied = {"service.checkout.status": {"before": "healthy", "after": "degraded"}}
 
@@ -506,7 +506,7 @@ class FakeConn:
                 if et == "AFFECTED" and tgt.startswith(pfx):
                     sev = data["source_event_id"]
                     if sev < before_id and sev >= before_id - window:
-                        out.append({"target_node": tgt, "source_event_id": sev, "metadata": data["metadata"]})
+                        out.append({"target_node": tgt, "source_event_id": sev, "metadata": json.dumps(data["metadata"])})
             return out
         raise AssertionError(f"unexpected SQL in FakeConn.fetch: {s!r}")
 
