@@ -89,3 +89,43 @@ async def _upsert_edge(conn, source, target, edge_type, weight=1.0, metadata=Non
     await conn.execute(
         UPSERT_EDGE_SQL, source, target, edge_type, weight, json.dumps(metadata or {}), source_event_id
     )
+
+
+PREV_EVENT_SQL = """
+    SELECT id FROM events WHERE status = 'accepted' AND id < $1 ORDER BY id DESC LIMIT 1
+"""
+
+
+async def project_event(conn, event_db_id, agent_id, payload, applied: dict[str, dict]) -> None:
+    agent_node_id = f"agent.{agent_id}"
+    await _upsert_node(conn, agent_node_id)
+
+    event_node_id = f"event.{event_db_id}"
+    await _upsert_node(
+        conn, event_node_id, "event", payload.description, {"event_type": payload.event_type}
+    )
+    await _upsert_edge(conn, agent_node_id, event_node_id, "PROPOSED", source_event_id=event_db_id)
+
+    prev = await conn.fetchrow(PREV_EVENT_SQL, event_db_id)
+    if prev is not None:
+        await _upsert_edge(
+            conn, f"event.{prev['id']}", event_node_id, "PRECEDES", source_event_id=event_db_id
+        )
+
+    for edge in await _causal_edges(conn, event_db_id, payload, applied):
+        await _ensure_node(conn, edge.source)
+        await _ensure_node(conn, edge.target)
+        await _upsert_edge(
+            conn, edge.source, edge.target, "CAUSED",
+            weight=edge.confidence, metadata=edge.metadata, source_event_id=event_db_id,
+        )
+
+
+async def _causal_edges(conn, event_db_id, payload, applied) -> list:
+    edges: list = []
+    for rule in CAUSAL_RULES:
+        edges.extend(await rule(conn, event_db_id, payload, applied))
+    return edges
+
+
+CAUSAL_RULES: list = []

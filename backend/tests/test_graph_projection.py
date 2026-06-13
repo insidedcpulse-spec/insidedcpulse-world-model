@@ -7,12 +7,15 @@ from app.projections.graph_projection import (
     UPSERT_NODE_SQL,
     UPSERT_EDGE_SQL,
     ENSURE_NODE_SQL,
+    PREV_EVENT_SQL,
     EntityRef,
     parse_entity_ref,
+    project_event,
     _ensure_node,
     _upsert_edge,
     _upsert_node,
 )
+from app.schemas import VisionRequest, WorldOp
 
 
 def test_parse_entity_ref_valid():
@@ -99,4 +102,61 @@ async def test_upsert_edge_with_weight_and_metadata():
     conn.execute.assert_awaited_once_with(
         UPSERT_EDGE_SQL, "alert.a1", "incident.inc3", "CAUSED", 0.56,
         json.dumps({"rule_id": "alert_precedes_incident"}), 200,
+    )
+
+
+def _vision(description="Do a thing", ops=None, event_type="vision"):
+    return VisionRequest(
+        event_type=event_type,
+        description=description,
+        ops=ops or [WorldOp(op="set", key="demo.counter", value=1)],
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_event_upserts_agent_event_and_proposed_edge():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None  # no previous accepted event
+    conn.fetch.return_value = []
+
+    payload = _vision(description="Bump the demo counter")
+    await project_event(conn, 42, "sre-agent-212dbc", payload, applied={})
+
+    conn.execute.assert_any_await(
+        UPSERT_NODE_SQL, "agent.sre-agent-212dbc", "agent", "sre-agent-212dbc", "{}"
+    )
+    conn.execute.assert_any_await(
+        UPSERT_NODE_SQL, "event.42", "event", "Bump the demo counter",
+        json.dumps({"event_type": "vision"}),
+    )
+    conn.execute.assert_any_await(
+        UPSERT_EDGE_SQL, "agent.sre-agent-212dbc", "event.42", "PROPOSED", 1.0, "{}", 42
+    )
+    conn.fetchrow.assert_awaited_once_with(PREV_EVENT_SQL, 42)
+
+
+@pytest.mark.asyncio
+async def test_project_event_no_precedes_edge_when_no_prior_event():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    await project_event(conn, 1, "sre-agent-212dbc", _vision(), applied={})
+
+    precedes_calls = [
+        c for c in conn.execute.await_args_list if c.args[0] == UPSERT_EDGE_SQL and c.args[3] == "PRECEDES"
+    ]
+    assert precedes_calls == []
+
+
+@pytest.mark.asyncio
+async def test_project_event_precedes_edge_from_prior_accepted_event():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = {"id": 41}
+    conn.fetch.return_value = []
+
+    await project_event(conn, 42, "sre-agent-212dbc", _vision(), applied={})
+
+    conn.execute.assert_any_await(
+        UPSERT_EDGE_SQL, "event.41", "event.42", "PRECEDES", 1.0, "{}", 42
     )
