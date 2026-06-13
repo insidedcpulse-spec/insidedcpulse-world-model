@@ -77,3 +77,15 @@ def test_parse_key_valid_alert():
 
 def test_get_field_spec_alert_status():
     assert get_field_spec("alert", "status") == {"type": "enum", "values": ["firing", "resolved"]}
+
+
+def test_parse_key_valid_research():
+    assert parse_key("research.2506_01234.title") == KeyParts("research", "2506_01234", "title")
+
+
+def test_get_field_spec_research_title():
+    assert get_field_spec("research", "title") == {"type": "string"}
+
+
+def test_get_field_spec_research_fetched_at():
+    assert get_field_spec("research", "fetched_at") == {"type": "string"}

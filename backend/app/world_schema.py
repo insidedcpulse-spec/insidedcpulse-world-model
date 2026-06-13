@@ -55,6 +55,14 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "source_service": {"type": "string"},
         "message": {"type": "object"},
     },
+    "research": {
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "topic": {"type": "string"},
+        "published": {"type": "string"},
+        "url": {"type": "string"},
+        "fetched_at": {"type": "string"},
+    },
 }
 
 

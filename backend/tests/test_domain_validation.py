@@ -176,3 +176,27 @@ def test_rejects_increment_on_alert_severity():
     ok, msg = check_domain_consistency(op, None)
     assert ok is False
     assert msg == "op 'increment' not allowed on field 'severity' (type 'enum')"
+
+
+def test_set_research_title_valid():
+    op = WorldOp(op="set", key="research.2506_01234.title", value="A Paper About SRE")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_research_summary_valid():
+    op = WorldOp(op="set", key="research.2506_01234.summary", value="An abstract.")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_research_unknown_field():
+    op = WorldOp(op="set", key="research.2506_01234.unknown_field", value="x")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "unknown field 'unknown_field' for entity 'research'"
+
+
+def test_rejects_merge_on_research_title():
+    op = WorldOp(op="merge", key="research.2506_01234.title", value={"x": 1})
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'merge' not allowed on field 'title' (type 'string')"
