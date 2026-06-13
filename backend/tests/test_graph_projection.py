@@ -431,3 +431,142 @@ async def test_r3_no_match_when_deployment_status_not_in_progress_or_done():
     edges = await _rule_r3_deployment_precedes_degradation(conn, 300, _vision(), applied)
 
     assert edges == []
+
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
+from app.world_state import apply_op_to_value  # noqa: E402
+
+
+class FakeConn:
+    """Minimal in-memory stand-in for asyncpg.Connection, covering exactly the
+    SQL shapes graph_projection.py issues. Used only for the replay-determinism
+    test below."""
+
+    def __init__(self, events):
+        self.events = events  # [{"id": int, "status": "accepted"}]
+        self.nodes: dict[str, dict] = {}
+        self.edges: dict[tuple[str, str, str], dict] = {}
+
+    @staticmethod
+    def _norm(sql):
+        return " ".join(sql.split())
+
+    async def execute(self, sql, *args):
+        s = self._norm(sql)
+        if s.startswith("TRUNCATE"):
+            self.nodes.clear()
+            self.edges.clear()
+        elif "INSERT INTO graph_nodes (id, type, label, metadata" in s:
+            node_id, node_type, label, metadata_json = args
+            self.nodes[node_id] = {"type": node_type, "label": label, "metadata": json.loads(metadata_json)}
+        elif "INSERT INTO graph_nodes (id, type, label)" in s:
+            node_id, node_type, label = args
+            self.nodes.setdefault(node_id, {"type": node_type, "label": label, "metadata": {}})
+        elif "INSERT INTO graph_edges" in s:
+            source, target, edge_type, weight, metadata_json, source_event_id = args
+            self.edges[(source, target, edge_type)] = {
+                "weight": weight, "metadata": json.loads(metadata_json), "source_event_id": source_event_id,
+            }
+        else:
+            raise AssertionError(f"unexpected SQL in FakeConn.execute: {s!r}")
+
+    async def fetchrow(self, sql, *args):
+        s = self._norm(sql)
+        if "FROM events" in s:
+            (before_id,) = args
+            candidates = [e for e in self.events if e["status"] == "accepted" and e["id"] < before_id]
+            if not candidates:
+                return None
+            return {"id": max(e["id"] for e in candidates)}
+        raise AssertionError(f"unexpected SQL in FakeConn.fetchrow: {s!r}")
+
+    async def fetch(self, sql, *args):
+        s = self._norm(sql)
+        if "SELECT target_node FROM graph_edges WHERE source_node" in s:
+            (source,) = args
+            return [
+                {"target_node": t} for (src, t, et) in self.edges if src == source and et == "REFERENCES"
+            ]
+        if "SELECT source_node FROM graph_edges WHERE target_node" in s:
+            target, prefix = args
+            pfx = prefix.rstrip("%")
+            return [
+                {"source_node": src} for (src, tgt, et) in self.edges
+                if tgt == target and et == "REFERENCES" and src.startswith(pfx)
+            ]
+        if "WHERE edge_type = 'AFFECTED'" in s:
+            prefix, before_id, window = args
+            pfx = prefix.rstrip("%")
+            out = []
+            for (src, tgt, et), data in self.edges.items():
+                if et == "AFFECTED" and tgt.startswith(pfx):
+                    sev = data["source_event_id"]
+                    if sev < before_id and sev >= before_id - window:
+                        out.append({"target_node": tgt, "source_event_id": sev, "metadata": data["metadata"]})
+            return out
+        raise AssertionError(f"unexpected SQL in FakeConn.fetch: {s!r}")
+
+
+def _fixture_events():
+    return [
+        (1, "deploy-agent-aaaaaa", VisionRequest(
+            event_type="vision",
+            description="Start checkout v2 deployment",
+            ops=[
+                WorldOp(op="set", key="deployment.checkout_v2.status", value="in_progress"),
+                WorldOp(op="set", key="deployment.checkout_v2.target_service", value="service.checkout"),
+            ],
+        )),
+        (2, "alert-agent-bbbbbb", VisionRequest(
+            event_type="vision",
+            description="Checkout latency alert firing",
+            ops=[
+                WorldOp(op="set", key="alert.a1.status", value="firing"),
+                WorldOp(op="set", key="alert.a1.source_service", value="service.checkout"),
+            ],
+        )),
+        (3, "sre-agent-cccccc", VisionRequest(
+            event_type="vision",
+            description="Open incident for checkout",
+            ops=[
+                WorldOp(op="set", key="incident.inc3.status", value="open"),
+                WorldOp(op="set", key="incident.inc3.affected_service", value="service.checkout"),
+            ],
+        )),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_rebuild_reproduces_live_projection():
+    from rebuild_graph_projection import rebuild_from_events
+
+    fixture = _fixture_events()
+    events_meta = [{"id": event_id, "status": "accepted"} for event_id, _, _ in fixture]
+
+    live = FakeConn(events_meta)
+    world_state: dict[str, object] = {}
+    for event_id, agent_id, payload in fixture:
+        applied = {}
+        for op in payload.ops:
+            before = world_state.get(op.key)
+            after = None if op.op == "delete" else apply_op_to_value(before, op)
+            applied[op.key] = {"before": before, "after": after}
+            if op.op == "delete":
+                world_state.pop(op.key, None)
+            else:
+                world_state[op.key] = after
+        await project_event(live, event_id, agent_id, payload, applied)
+
+    rebuilt = FakeConn(events_meta)
+    await rebuild_from_events(rebuilt, [
+        {"id": event_id, "agent_id": agent_id, "payload": payload} for event_id, agent_id, payload in fixture
+    ])
+
+    assert rebuilt.nodes == live.nodes
+    assert rebuilt.edges == live.edges
+    # Sanity: R2 should have fired (alert.a1 -CAUSED-> incident.inc3)
+    assert ("alert.a1", "incident.inc3", "CAUSED") in live.edges
