@@ -247,4 +247,40 @@ async def _rule_r2_alert_precedes_incident(conn, event_db_id, payload, applied) 
     return edges
 
 
-CAUSAL_RULES: list = [_rule_r1_explicit_ref, _rule_r2_alert_precedes_incident]
+async def _rule_r3_deployment_precedes_degradation(conn, event_db_id, payload, applied) -> list[CausalEdge]:
+    edges: list[CausalEdge] = []
+    for key, change in applied.items():
+        parts = parse_key(key)
+        if parts is None or parts.entity != "service" or parts.field != "status":
+            continue
+        if change["after"] != "degraded" or change["before"] == "degraded":
+            continue
+        service_id = f"service.{parts.entity_id}"
+
+        dep_rows = await conn.fetch(REFERENCES_TO_SQL, service_id, "deployment.%")
+        deployment_ids = {row["source_node"] for row in dep_rows}
+        if not deployment_ids:
+            continue
+
+        affected_rows = await conn.fetch(RECENT_AFFECTED_SQL, "deployment.%", event_db_id, CAUSAL_WINDOW)
+        for row in affected_rows:
+            deployment_id = row["target_node"]
+            if deployment_id not in deployment_ids:
+                continue
+            fields = (row["metadata"] or {}).get("fields", {})
+            if fields.get("status") not in ("in_progress", "done"):
+                continue
+            dist = event_db_id - row["source_event_id"]
+            confidence = 0.7 * _recency(dist, CAUSAL_WINDOW)
+            edges.append(CausalEdge(deployment_id, service_id, confidence, {
+                "rule_id": "deployment_precedes_degradation",
+                "evidence_event_id": row["source_event_id"],
+            }))
+    return edges
+
+
+CAUSAL_RULES: list = [
+    _rule_r1_explicit_ref,
+    _rule_r2_alert_precedes_incident,
+    _rule_r3_deployment_precedes_degradation,
+]

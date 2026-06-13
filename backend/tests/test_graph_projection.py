@@ -11,11 +11,13 @@ from app.projections.graph_projection import (
     PREV_EVENT_SQL,
     RECENT_AFFECTED_SQL,
     REFERENCES_FROM_SQL,
+    REFERENCES_TO_SQL,
     UPSERT_EDGE_SQL,
     UPSERT_NODE_SQL,
     _ensure_node,
     _rule_r1_explicit_ref,
     _rule_r2_alert_precedes_incident,
+    _rule_r3_deployment_precedes_degradation,
     _upsert_edge,
     _upsert_node,
     parse_entity_ref,
@@ -371,5 +373,61 @@ async def test_r2_no_match_when_no_common_reference_target():
     applied = {"incident.inc3.status": {"before": None, "after": "open"}}
 
     edges = await _rule_r2_alert_precedes_incident(conn, 200, _vision(), applied)
+
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_r3_matches_deployment_in_progress_before_degradation():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [
+        [{"source_node": "deployment.checkout_v2"}],  # deployments referencing service.checkout
+        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": {"fields": {"status": "in_progress"}}}],
+    ]
+    applied = {"service.checkout.status": {"before": "healthy", "after": "degraded"}}
+
+    edges = await _rule_r3_deployment_precedes_degradation(conn, 300, _vision(), applied)
+
+    assert edges == [
+        CausalEdge("deployment.checkout_v2", "service.checkout", 0.7 * 0.9, {
+            "rule_id": "deployment_precedes_degradation", "evidence_event_id": 295,
+        })
+    ]
+    conn.fetch.assert_any_await(REFERENCES_TO_SQL, "service.checkout", "deployment.%")
+    conn.fetch.assert_any_await(RECENT_AFFECTED_SQL, "deployment.%", 300, CAUSAL_WINDOW)
+
+
+@pytest.mark.asyncio
+async def test_r3_skips_when_already_degraded():
+    conn = AsyncMock()
+    applied = {"service.checkout.status": {"before": "degraded", "after": "degraded"}}
+
+    edges = await _rule_r3_deployment_precedes_degradation(conn, 300, _vision(), applied)
+
+    assert edges == []
+    conn.fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_r3_no_match_when_no_referencing_deployment():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [[]]
+    applied = {"service.checkout.status": {"before": "healthy", "after": "degraded"}}
+
+    edges = await _rule_r3_deployment_precedes_degradation(conn, 300, _vision(), applied)
+
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_r3_no_match_when_deployment_status_not_in_progress_or_done():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [
+        [{"source_node": "deployment.checkout_v2"}],
+        [{"target_node": "deployment.checkout_v2", "source_event_id": 295, "metadata": {"fields": {"status": "pending"}}}],
+    ]
+    applied = {"service.checkout.status": {"before": "healthy", "after": "degraded"}}
+
+    edges = await _rule_r3_deployment_precedes_degradation(conn, 300, _vision(), applied)
 
     assert edges == []
