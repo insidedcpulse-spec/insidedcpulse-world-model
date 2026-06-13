@@ -54,6 +54,32 @@ CREATE TABLE IF NOT EXISTS drift_samples (
 
 CREATE INDEX IF NOT EXISTS idx_drift_created ON drift_samples(created_at DESC);
 
+-- Graph Memory Projection: derived only from accepted events (see
+-- backend/app/projections/graph_projection.py). Never written directly.
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    id          TEXT PRIMARY KEY,        -- "agent.sre-agent-212dbc" | "event.139" | "incident.inc3"
+    type        TEXT NOT NULL,           -- "agent" | "event" | "<entity>"
+    label       TEXT NOT NULL,
+    metadata    JSONB NOT NULL DEFAULT '{}',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_graph_nodes_type ON graph_nodes(type);
+
+CREATE TABLE IF NOT EXISTS graph_edges (
+    id              BIGSERIAL PRIMARY KEY,
+    source_node     TEXT NOT NULL REFERENCES graph_nodes(id),
+    target_node     TEXT NOT NULL REFERENCES graph_nodes(id),
+    edge_type       TEXT NOT NULL,
+    weight          NUMERIC(5,4) NOT NULL DEFAULT 1.0,  -- confidence for CAUSED, count for AFFECTED
+    metadata        JSONB NOT NULL DEFAULT '{}',        -- rule_id, evidence event ids, fields touched, etc.
+    source_event_id BIGINT REFERENCES events(id),       -- which event (last) created/refreshed this edge
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (source_node, target_node, edge_type)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_node, edge_type);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_node, edge_type);
+
 -- Genesis agent used for internal/system commits.
 INSERT INTO agents (id, name, api_key_hash, reputation)
 VALUES ('system', 'InsideDCPulse System', 'system-internal-no-login', 1.0)
