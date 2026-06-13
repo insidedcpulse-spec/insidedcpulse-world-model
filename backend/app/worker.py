@@ -28,6 +28,7 @@ from app.metrics import (
     set_queue_size,
     set_world_state_keys,
 )
+from app.projections import graph_projection
 from app.schemas import VisionRequest
 from app.validation import evaluate, ops_hash
 from app.world_state import commit_ops
@@ -84,6 +85,7 @@ async def process_event(pool: asyncpg.Pool, r: redis.Redis, data: dict) -> None:
             async with conn.transaction():
                 db_id = await mark_processed(conn, event_id, "accepted", score, reason_text)
                 applied = await commit_ops(conn, payload.ops, db_id)
+                await graph_projection.project_event(conn, db_id, agent_id, payload, applied)
                 new_reputation = await apply_outcome(conn, agent_id, True)
 
         record_world_event("accepted")
