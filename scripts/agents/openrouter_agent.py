@@ -50,6 +50,13 @@ alert.<id>.status               enum: firing, resolved
 alert.<id>.source_service       string
 alert.<id>.message              object
 
+research.<id>.title             string
+research.<id>.summary           string
+research.<id>.topic             string
+research.<id>.published         string
+research.<id>.url               string
+research.<id>.fetched_at        string
+
 Valid ops: {"op": "set"|"increment"|"merge", "key": "<entity>.<id>.<field>", "value": ...}
 """
 
