@@ -37,6 +37,26 @@ Exact flag names are whatever `/printing-press` produces from arXiv's API —
 `research_agent.py` (component 3) is written against the actual generated
 `--help` output, not assumed in advance.
 
+**Verified generated interface** (built 2026-06-13, `~/go/bin/arxiv-pp-cli`):
+
+```
+arxiv-pp-cli query --search-query '<query>' --max-results 5 --json
+```
+
+Output is a JSON envelope, not pre-parsed paper fields:
+
+```json
+{"meta": {"source": "live"}, "results": "<?xml version='1.0' ...?><feed xmlns=\"http://www.w3.org/2005/Atom\" ...>...<entry>...</entry>...</feed>"}
+```
+
+`results` is the raw Atom 1.0 XML feed as a string (the spec's response
+content-type is `application/atom+xml`, so the generated client passes the
+body through unparsed). `research_agent.py` (component 3) therefore parses
+this XML itself via `xml.etree.ElementTree` (stdlib, no new dependency) —
+each `<entry>` has `<id>`, `<title>`, `<summary>`, `<published>`, and a
+`<link rel="alternate" type="text/html" href="...">` for the abs page URL,
+all under the `http://www.w3.org/2005/Atom` namespace.
+
 ### 2. New `research` entity — `backend/app/world_schema.py`
 
 Pure-additive entry in `ENTITY_SCHEMAS`, no validation-engine changes (same
@@ -93,9 +113,11 @@ Flow:
    `research.<id>.fetched_at` values for FIFO comparison.
 3. Pick this run's topic: persisted `TOPIC_INDEX` in the env file, `% len(TOPICS)`,
    incremented and saved back each run (simple round-robin, survives restarts).
-4. Run `arxiv-pp-cli <search-cmd> --query '<topic>' --max-results 5 --json`
-   via `subprocess.run`, parse JSON.
-5. Iterate results in order, sanitize each `id`; pick the first whose
+4. Run `arxiv-pp-cli query --search-query 'all:"<topic>"' --max-results 5
+   --json` via `subprocess.run`, `json.loads` the stdout envelope, then parse
+   its `results` string (raw Atom XML) with `xml.etree.ElementTree`, reading
+   `<entry>` elements under the `http://www.w3.org/2005/Atom` namespace.
+5. Iterate entries in order, sanitize each `<id>`; pick the first whose
    sanitized id is **not** already in `research.*`. If all 5 are already
    present, exit 0 (no-op, logged) — try again next hour (topic will have
    rotated).
