@@ -4,16 +4,18 @@ from unittest.mock import AsyncMock, call
 import pytest
 
 from app.projections.graph_projection import (
-    UPSERT_NODE_SQL,
-    UPSERT_EDGE_SQL,
+    CausalEdge,
     ENSURE_NODE_SQL,
-    PREV_EVENT_SQL,
     EntityRef,
-    parse_entity_ref,
-    project_event,
+    PREV_EVENT_SQL,
+    UPSERT_EDGE_SQL,
+    UPSERT_NODE_SQL,
     _ensure_node,
+    _rule_r1_explicit_ref,
     _upsert_edge,
     _upsert_node,
+    parse_entity_ref,
+    project_event,
 )
 from app.schemas import VisionRequest, WorldOp
 
@@ -238,3 +240,73 @@ async def test_project_event_owned_by_edges_from_team_owned_services():
         conn.execute.assert_any_await(
             UPSERT_EDGE_SQL, f"service.{svc}", "team.sre", "OWNED_BY", 1.0, "{}", 60
         )
+
+
+@pytest.mark.asyncio
+async def test_r1_explicit_ref_in_notes_field():
+    conn = AsyncMock()
+    applied = {
+        "incident.inc3.notes": {
+            "before": {},
+            "after": {"scaling_deployment_id": "deployment.checkout_scaling"},
+        },
+    }
+
+    edges = await _rule_r1_explicit_ref(conn, 100, _vision(), applied)
+
+    assert edges == [
+        CausalEdge("incident.inc3", "deployment.checkout_scaling", 1.0, {"rule_id": "explicit_ref"})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_r1_no_match_when_notes_has_no_ref_suffix_field():
+    conn = AsyncMock()
+    applied = {
+        "incident.inc3.notes": {"before": {}, "after": {"summary": "investigating"}},
+    }
+
+    edges = await _rule_r1_explicit_ref(conn, 100, _vision(), applied)
+
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_r1_no_match_when_ref_value_does_not_parse():
+    conn = AsyncMock()
+    applied = {
+        "incident.inc3.notes": {
+            "before": {},
+            "after": {"scaling_deployment_id": "not-a-ref"},
+        },
+    }
+
+    edges = await _rule_r1_explicit_ref(conn, 100, _vision(), applied)
+
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_project_event_creates_caused_edge_for_r1():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    applied = {
+        "incident.inc3.notes": {
+            "before": {},
+            "after": {"scaling_deployment_id": "deployment.checkout_scaling"},
+        },
+    }
+    await project_event(conn, 100, "sre-agent-212dbc", _vision(), applied)
+
+    conn.execute.assert_any_await(
+        ENSURE_NODE_SQL, "incident.inc3", "incident", "incident.inc3"
+    )
+    conn.execute.assert_any_await(
+        ENSURE_NODE_SQL, "deployment.checkout_scaling", "deployment", "deployment.checkout_scaling"
+    )
+    conn.execute.assert_any_await(
+        UPSERT_EDGE_SQL, "incident.inc3", "deployment.checkout_scaling", "CAUSED", 1.0,
+        json.dumps({"rule_id": "explicit_ref"}), 100,
+    )

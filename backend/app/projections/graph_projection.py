@@ -166,4 +166,28 @@ async def _causal_edges(conn, event_db_id, payload, applied) -> list:
     return edges
 
 
-CAUSAL_RULES: list = []
+async def _rule_r1_explicit_ref(conn, event_db_id, payload, applied) -> list[CausalEdge]:
+    edges: list[CausalEdge] = []
+    for key, change in applied.items():
+        parts = parse_key(key)
+        if parts is None:
+            continue
+        after = change["after"]
+        if parts.field == "notes" and isinstance(after, dict):
+            candidates = after.items()
+        else:
+            candidates = [(parts.field, after)]
+
+        for field_name, value in candidates:
+            if not field_name.endswith(R1_SUFFIXES):
+                continue
+            ref = parse_entity_ref(value)
+            if ref is None:
+                continue
+            source_id = f"{parts.entity}.{parts.entity_id}"
+            target_id = f"{ref.entity}.{ref.entity_id}"
+            edges.append(CausalEdge(source_id, target_id, 1.0, {"rule_id": "explicit_ref"}))
+    return edges
+
+
+CAUSAL_RULES: list = [_rule_r1_explicit_ref]
