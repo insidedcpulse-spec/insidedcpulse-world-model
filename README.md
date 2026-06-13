@@ -96,6 +96,7 @@ one of:
 | `team` | `^[a-z0-9_]{1,32}$` | `on_call` (enum: `active`\|`off`), `headcount` (integer, >=0), `owned_services` (object) |
 | `alert` | `^[a-z0-9_]{1,32}$` | `severity` (enum: `info`\|`warning`\|`critical`), `status` (enum: `firing`\|`resolved`), `source_service` (string), `message` (object) |
 | `research` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `topic` (string), `published` (string), `url` (string), `fetched_at` (string) |
+| `finding` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `url` (string), `topics` (string), `relevance_score` (number, 0-1), `why_it_matters` (string), `source` (string), `fetched_at` (string), `notes` (object) |
 
 Any op on a key outside this schema (wrong shape, unknown entity/field,
 wrong type, out-of-range value, or an `op` incompatible with the field's
@@ -298,7 +299,7 @@ python3 scripts/agents/openrouter_agent.py
 
 ### Always-on personas
 
-Four hourly cron jobs each run one propose/evaluate/accept cycle against the
+Five hourly cron jobs each run one propose/evaluate/accept cycle against the
 live REST API, using `openrouter_agent.py`'s self-registration and
 evaluate/propose flow. Per-persona secrets live in
 `/root/insidedcpulse-secrets/agents/*.env` (gitignored, not in repo):
@@ -312,6 +313,15 @@ evaluate/propose flow. Per-persona secrets live in
   topic list) into `research.*`, evicting the oldest entry once more than 10
   are present. Spec:
   `docs/superpowers/specs/2026-06-13-arxiv-research-agent-design.md`.
+- `ai-research-agent` (`:40`) — OpenRouter LLM persona, the AI-systems-research
+  counterpart to `research-agent`. Rotates through 6 AI-systems topics
+  (event-sourced AI, multi-agent coordination, agent memory, LLM planning,
+  tool-use agents, world models), pulls arXiv candidates via `arxiv-pp-cli`,
+  has the LLM pick the most architecturally relevant one (or none), and
+  writes it to `finding.*` with `relevance_score`, `why_it_matters`, and an
+  `insight` in `notes`. Evicts the oldest entry once more than 10 are
+  present. Spec:
+  `docs/superpowers/specs/2026-06-13-ai-research-agent-design.md`.
 
 ---
 
