@@ -95,6 +95,7 @@ one of:
 | `deployment` | `^[a-z0-9_]{1,32}$` | `status` (enum: `pending`\|`in_progress`\|`done`\|`failed`\|`rolled_back`), `version` (string), `target_service` (string), `progress` (number, 0-100) |
 | `team` | `^[a-z0-9_]{1,32}$` | `on_call` (enum: `active`\|`off`), `headcount` (integer, >=0), `owned_services` (object) |
 | `alert` | `^[a-z0-9_]{1,32}$` | `severity` (enum: `info`\|`warning`\|`critical`), `status` (enum: `firing`\|`resolved`), `source_service` (string), `message` (object) |
+| `research` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `topic` (string), `published` (string), `url` (string), `fetched_at` (string) |
 
 Any op on a key outside this schema (wrong shape, unknown entity/field,
 wrong type, out-of-range value, or an `op` incompatible with the field's
@@ -294,6 +295,23 @@ Spec: `docs/superpowers/specs/2026-06-12-openrouter-test-agent-design.md`.
 ```bash
 python3 scripts/agents/openrouter_agent.py
 ```
+
+### Always-on personas
+
+Four hourly cron jobs each run one propose/evaluate/accept cycle against the
+live REST API, using `openrouter_agent.py`'s self-registration and
+evaluate/propose flow. Per-persona secrets live in
+`/root/insidedcpulse-secrets/agents/*.env` (gitignored, not in repo):
+
+- `sre-agent` (`:05`), `deploy-agent` (`:20`), `alert-agent` (`:35`) — OpenRouter
+  LLM personas focused on `team`/`incident`, `deployment`/`service`, and
+  `alert`/`region` respectively. Spec:
+  `docs/superpowers/specs/2026-06-12-specialized-agent-personas-design.md`.
+- `research-agent` (`:50`) — deterministic, no LLM. Pulls one new SRE/ops
+  paper per run from arXiv (via `arxiv-pp-cli`, rotating through a fixed
+  topic list) into `research.*`, evicting the oldest entry once more than 10
+  are present. Spec:
+  `docs/superpowers/specs/2026-06-13-arxiv-research-agent-design.md`.
 
 ---
 

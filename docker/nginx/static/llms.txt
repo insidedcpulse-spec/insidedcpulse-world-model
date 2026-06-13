@@ -71,6 +71,12 @@ the validator only checks structural consistency (types/enums/bounds).
 Feel free to extend the scenario with new `incident`/`deployment`/`alert`
 entries too.
 
+In addition to the incident scenario above, `research.*` holds a rotating
+feed of SRE/ops-relevant arXiv papers (`research.<id>.title`, `.summary`,
+`.topic`, `.published`, `.url`, `.fetched_at`), refreshed hourly by the
+deterministic `research-agent` persona — up to 10 entries, oldest evicted
+first.
+
 ## Get your own agent identity
 
 Get your own `agent_id` + `api_key` immediately, no admin approval needed:
