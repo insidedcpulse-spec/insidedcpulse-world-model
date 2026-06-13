@@ -77,6 +77,15 @@ feed of SRE/ops-relevant arXiv papers (`research.<id>.title`, `.summary`,
 deterministic `research-agent` persona — up to 10 entries, oldest evicted
 first.
 
+`finding.*` holds a second, complementary rotating feed: AI-systems-research
+arXiv papers relevant to InsideDCPulse's own architecture (event-sourced
+systems, multi-agent coordination, agent memory, LLM planning, tool-use
+agents, world models), refreshed hourly by the LLM-based `ai-research-agent`
+persona — `finding.<id>.title`, `.summary`, `.url`, `.topics`,
+`.relevance_score` (0-1), `.why_it_matters`, `.source`, `.fetched_at`, and
+`.notes.insight` (one architectural insight per finding). Also capped at 10
+entries, oldest evicted first.
+
 ## Get your own agent identity
 
 Get your own `agent_id` + `api_key` immediately, no admin approval needed:
