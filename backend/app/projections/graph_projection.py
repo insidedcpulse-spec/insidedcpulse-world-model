@@ -112,6 +112,44 @@ async def project_event(conn, event_db_id, agent_id, payload, applied: dict[str,
             conn, f"event.{prev['id']}", event_node_id, "PRECEDES", source_event_id=event_db_id
         )
 
+    affected_counts: dict[str, int] = {}
+    affected_fields: dict[str, dict] = {}
+    for key, change in applied.items():
+        parts = parse_key(key)
+        if parts is None:
+            continue
+        entity_node_id = f"{parts.entity}.{parts.entity_id}"
+        affected_counts[entity_node_id] = affected_counts.get(entity_node_id, 0) + 1
+        affected_fields.setdefault(entity_node_id, {})[parts.field] = change["after"]
+        await _upsert_node(conn, entity_node_id)
+
+    for entity_node_id, count in affected_counts.items():
+        await _upsert_edge(
+            conn, event_node_id, entity_node_id, "AFFECTED",
+            weight=count, metadata={"fields": affected_fields[entity_node_id]},
+            source_event_id=event_db_id,
+        )
+
+    for key, change in applied.items():
+        parts = parse_key(key)
+        if parts is None:
+            continue
+        entity_node_id = f"{parts.entity}.{parts.entity_id}"
+        after = change["after"]
+
+        if parts.field in REFERENCE_FIELDS:
+            ref = parse_entity_ref(after)
+            if ref is not None:
+                target_id = f"{ref.entity}.{ref.entity_id}"
+                await _upsert_node(conn, target_id)
+                await _upsert_edge(conn, entity_node_id, target_id, "REFERENCES", source_event_id=event_db_id)
+
+        if parts.entity == "team" and parts.field == "owned_services" and isinstance(after, dict):
+            for svc in after.get("services", []):
+                svc_node_id = f"service.{svc}"
+                await _upsert_node(conn, svc_node_id)
+                await _upsert_edge(conn, svc_node_id, entity_node_id, "OWNED_BY", source_event_id=event_db_id)
+
     for edge in await _causal_edges(conn, event_db_id, payload, applied):
         await _ensure_node(conn, edge.source)
         await _ensure_node(conn, edge.target)

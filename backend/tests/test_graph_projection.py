@@ -160,3 +160,81 @@ async def test_project_event_precedes_edge_from_prior_accepted_event():
     conn.execute.assert_any_await(
         UPSERT_EDGE_SQL, "event.41", "event.42", "PRECEDES", 1.0, "{}", 42
     )
+
+
+@pytest.mark.asyncio
+async def test_project_event_affected_edge_with_field_weight_and_metadata():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    applied = {
+        "incident.inc3.status": {"before": "open", "after": "mitigated"},
+        "incident.inc3.severity": {"before": "high", "after": "medium"},
+    }
+    await project_event(conn, 42, "sre-agent-212dbc", _vision(), applied)
+
+    conn.execute.assert_any_await(
+        UPSERT_NODE_SQL, "incident.inc3", "incident", "incident.inc3", "{}"
+    )
+    conn.execute.assert_any_await(
+        UPSERT_EDGE_SQL, "event.42", "incident.inc3", "AFFECTED", 2,
+        json.dumps({"fields": {"status": "mitigated", "severity": "medium"}}), 42,
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_event_references_edge_for_affected_service():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    applied = {
+        "incident.inc3.affected_service": {"before": None, "after": "service.checkout"},
+    }
+    await project_event(conn, 50, "sre-agent-212dbc", _vision(), applied)
+
+    conn.execute.assert_any_await(
+        UPSERT_NODE_SQL, "service.checkout", "service", "service.checkout", "{}"
+    )
+    conn.execute.assert_any_await(
+        UPSERT_EDGE_SQL, "incident.inc3", "service.checkout", "REFERENCES", 1.0, "{}", 50
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_event_skips_non_domain_keys():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    applied = {"demo.counter": {"before": 0, "after": 1}}
+    await project_event(conn, 7, "sre-agent-212dbc", _vision(), applied)
+
+    affected_calls = [
+        c for c in conn.execute.await_args_list if c.args[0] == UPSERT_EDGE_SQL and c.args[3] == "AFFECTED"
+    ]
+    assert affected_calls == []
+
+
+@pytest.mark.asyncio
+async def test_project_event_owned_by_edges_from_team_owned_services():
+    conn = AsyncMock()
+    conn.fetchrow.return_value = None
+    conn.fetch.return_value = []
+
+    applied = {
+        "team.sre.owned_services": {
+            "before": None,
+            "after": {"services": ["checkout", "auth", "payments_db"]},
+        },
+    }
+    await project_event(conn, 60, "sre-agent-212dbc", _vision(), applied)
+
+    for svc in ("checkout", "auth", "payments_db"):
+        conn.execute.assert_any_await(
+            UPSERT_NODE_SQL, f"service.{svc}", "service", f"service.{svc}", "{}"
+        )
+        conn.execute.assert_any_await(
+            UPSERT_EDGE_SQL, f"service.{svc}", "team.sre", "OWNED_BY", 1.0, "{}", 60
+        )
