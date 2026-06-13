@@ -5,13 +5,17 @@ import pytest
 
 from app.projections.graph_projection import (
     CausalEdge,
+    CAUSAL_WINDOW,
     ENSURE_NODE_SQL,
     EntityRef,
     PREV_EVENT_SQL,
+    RECENT_AFFECTED_SQL,
+    REFERENCES_FROM_SQL,
     UPSERT_EDGE_SQL,
     UPSERT_NODE_SQL,
     _ensure_node,
     _rule_r1_explicit_ref,
+    _rule_r2_alert_precedes_incident,
     _upsert_edge,
     _upsert_node,
     parse_entity_ref,
@@ -310,3 +314,62 @@ async def test_project_event_creates_caused_edge_for_r1():
         UPSERT_EDGE_SQL, "incident.inc3", "deployment.checkout_scaling", "CAUSED", 1.0,
         json.dumps({"rule_id": "explicit_ref"}), 100,
     )
+
+
+@pytest.mark.asyncio
+async def test_r2_matches_alert_firing_for_same_service():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [
+        [{"target_node": "service.checkout"}],  # incident.inc3's REFERENCES targets
+        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": {"fields": {"status": "firing"}}}],
+        [{"target_node": "service.checkout"}],  # alert.a1's REFERENCES targets
+    ]
+    applied = {"incident.inc3.status": {"before": None, "after": "open"}}
+
+    edges = await _rule_r2_alert_precedes_incident(conn, 200, _vision(), applied)
+
+    assert edges == [
+        CausalEdge("alert.a1", "incident.inc3", 0.7 * 0.8, {
+            "rule_id": "alert_precedes_incident", "evidence_event_id": 190,
+        })
+    ]
+    conn.fetch.assert_any_await(REFERENCES_FROM_SQL, "incident.inc3")
+    conn.fetch.assert_any_await(RECENT_AFFECTED_SQL, "alert.%", 200, CAUSAL_WINDOW)
+    conn.fetch.assert_any_await(REFERENCES_FROM_SQL, "alert.a1")
+
+
+@pytest.mark.asyncio
+async def test_r2_no_match_when_incident_has_no_references():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [[]]  # incident.inc3 has no REFERENCES edges
+    applied = {"incident.inc3.status": {"before": None, "after": "open"}}
+
+    edges = await _rule_r2_alert_precedes_incident(conn, 200, _vision(), applied)
+
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_r2_skips_when_status_was_already_set():
+    conn = AsyncMock()
+    applied = {"incident.inc3.status": {"before": "open", "after": "mitigated"}}
+
+    edges = await _rule_r2_alert_precedes_incident(conn, 200, _vision(), applied)
+
+    assert edges == []
+    conn.fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_r2_no_match_when_no_common_reference_target():
+    conn = AsyncMock()
+    conn.fetch.side_effect = [
+        [{"target_node": "service.checkout"}],
+        [{"target_node": "alert.a1", "source_event_id": 190, "metadata": {"fields": {"status": "firing"}}}],
+        [{"target_node": "service.payments"}],  # alert.a1 references a different service
+    ]
+    applied = {"incident.inc3.status": {"before": None, "after": "open"}}
+
+    edges = await _rule_r2_alert_precedes_incident(conn, 200, _vision(), applied)
+
+    assert edges == []

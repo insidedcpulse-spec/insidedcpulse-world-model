@@ -95,6 +95,21 @@ PREV_EVENT_SQL = """
     SELECT id FROM events WHERE status = 'accepted' AND id < $1 ORDER BY id DESC LIMIT 1
 """
 
+REFERENCES_FROM_SQL = """
+    SELECT target_node FROM graph_edges WHERE source_node = $1 AND edge_type = 'REFERENCES'
+"""
+
+REFERENCES_TO_SQL = """
+    SELECT source_node FROM graph_edges
+    WHERE target_node = $1 AND edge_type = 'REFERENCES' AND source_node LIKE $2
+"""
+
+RECENT_AFFECTED_SQL = """
+    SELECT target_node, source_event_id, metadata FROM graph_edges
+    WHERE edge_type = 'AFFECTED' AND target_node LIKE $1
+      AND source_event_id < $2 AND source_event_id >= $2 - $3
+"""
+
 
 async def project_event(conn, event_db_id, agent_id, payload, applied: dict[str, dict]) -> None:
     agent_node_id = f"agent.{agent_id}"
@@ -190,4 +205,46 @@ async def _rule_r1_explicit_ref(conn, event_db_id, payload, applied) -> list[Cau
     return edges
 
 
-CAUSAL_RULES: list = [_rule_r1_explicit_ref]
+def _recency(dist: int, window: int) -> float:
+    return max(0.3, 1 - dist / window)
+
+
+async def _rule_r2_alert_precedes_incident(conn, event_db_id, payload, applied) -> list[CausalEdge]:
+    edges: list[CausalEdge] = []
+    for key, change in applied.items():
+        parts = parse_key(key)
+        if parts is None or parts.entity != "incident" or parts.field != "status":
+            continue
+        if change["after"] != "open" or change["before"] is not None:
+            continue
+        incident_id = f"incident.{parts.entity_id}"
+
+        ref_rows = await conn.fetch(REFERENCES_FROM_SQL, incident_id)
+        ref_targets = {row["target_node"] for row in ref_rows}
+        if not ref_targets:
+            continue
+
+        affected_rows = await conn.fetch(RECENT_AFFECTED_SQL, "alert.%", event_db_id, CAUSAL_WINDOW)
+        for row in affected_rows:
+            fields = (row["metadata"] or {}).get("fields", {})
+            if fields.get("status") != "firing":
+                continue
+            alert_id = row["target_node"]
+
+            alert_ref_rows = await conn.fetch(REFERENCES_FROM_SQL, alert_id)
+            alert_targets = {r["target_node"] for r in alert_ref_rows}
+            common = ref_targets & alert_targets
+            if not common:
+                continue
+
+            base = 0.7 if any(t.startswith("service.") for t in common) else 0.5
+            dist = event_db_id - row["source_event_id"]
+            confidence = base * _recency(dist, CAUSAL_WINDOW)
+            edges.append(CausalEdge(alert_id, incident_id, confidence, {
+                "rule_id": "alert_precedes_incident",
+                "evidence_event_id": row["source_event_id"],
+            }))
+    return edges
+
+
+CAUSAL_RULES: list = [_rule_r1_explicit_ref, _rule_r2_alert_precedes_incident]
