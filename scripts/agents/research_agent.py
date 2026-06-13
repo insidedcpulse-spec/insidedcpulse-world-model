@@ -112,7 +112,7 @@ def main() -> None:
     for key, value in state.items():
         parts = key.split(".")
         if len(parts) == 3 and parts[0] == "research" and parts[2] == "fetched_at":
-            existing_ids[parts[1]] = value
+            existing_ids[parts[1]] = value["value"]
 
     topic_index = int(env.get("TOPIC_INDEX", "0"))
     topic = TOPICS[topic_index % len(TOPICS)]
