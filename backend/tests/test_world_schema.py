@@ -101,3 +101,24 @@ def test_get_field_spec_finding_relevance_score():
 
 def test_get_field_spec_finding_notes():
     assert get_field_spec("finding", "notes") == {"type": "object"}
+
+
+def test_parse_key_valid_vulnerability():
+    assert parse_key("vulnerability.cve_2026_35273.severity") == KeyParts(
+        "vulnerability", "cve_2026_35273", "severity"
+    )
+
+
+def test_get_field_spec_vulnerability_cve_id():
+    assert get_field_spec("vulnerability", "cve_id") == {"type": "string"}
+
+
+def test_get_field_spec_vulnerability_severity():
+    assert get_field_spec("vulnerability", "severity") == {
+        "type": "enum",
+        "values": ["high", "critical"],
+    }
+
+
+def test_get_field_spec_vulnerability_affected_service():
+    assert get_field_spec("vulnerability", "affected_service") == {"type": "string"}
