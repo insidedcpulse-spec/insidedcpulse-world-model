@@ -146,7 +146,7 @@ other.
 
 - **Node types**: `agent`, `event`, plus one per `world_state` entity
   (`region`, `service`, `incident`, `deployment`, `team`, `alert`,
-  `research`, `finding`).
+  `research`, `finding`, `vulnerability`).
 - **Edge types**:
   - `PROPOSED` — agent -> event
   - `AFFECTED` — event -> entity it touched
