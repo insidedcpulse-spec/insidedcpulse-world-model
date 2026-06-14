@@ -236,3 +236,39 @@ def test_rejects_merge_on_finding_title():
 def test_merge_on_finding_notes_valid():
     op = WorldOp(op="merge", key="finding.2506_01234.notes", value={"insight": "use event sourcing for agent memory"})
     assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_vulnerability_cve_id_valid():
+    op = WorldOp(op="set", key="vulnerability.cve_2026_35273.cve_id", value="CVE-2026-35273")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_vulnerability_severity_valid():
+    op = WorldOp(op="set", key="vulnerability.cve_2026_35273.severity", value="critical")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_vulnerability_invalid_severity():
+    op = WorldOp(op="set", key="vulnerability.cve_2026_35273.severity", value="medium")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "'severity' must be one of ['high', 'critical'], got 'medium'"
+
+
+def test_rejects_vulnerability_unknown_field():
+    op = WorldOp(op="set", key="vulnerability.cve_2026_35273.unknown_field", value="x")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "unknown field 'unknown_field' for entity 'vulnerability'"
+
+
+def test_rejects_merge_on_vulnerability_summary():
+    op = WorldOp(op="merge", key="vulnerability.cve_2026_35273.summary", value={"x": 1})
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'merge' not allowed on field 'summary' (type 'string')"
+
+
+def test_set_vulnerability_affected_service_empty_string_valid():
+    op = WorldOp(op="set", key="vulnerability.cve_2026_35273.affected_service", value="")
+    assert check_domain_consistency(op, None) == (True, None)

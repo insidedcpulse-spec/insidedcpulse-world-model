@@ -57,6 +57,16 @@ research.<id>.published         string
 research.<id>.url               string
 research.<id>.fetched_at        string
 
+vulnerability.<id>.cve_id            string
+vulnerability.<id>.product           string
+vulnerability.<id>.summary           string
+vulnerability.<id>.severity          enum: high, critical
+vulnerability.<id>.date_added        string
+vulnerability.<id>.stack_match       string
+vulnerability.<id>.affected_service  string
+vulnerability.<id>.url               string
+vulnerability.<id>.fetched_at        string
+
 Valid ops: {"op": "set"|"increment"|"merge", "key": "<entity>.<id>.<field>", "value": ...}
 """
 

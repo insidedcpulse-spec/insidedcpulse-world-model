@@ -110,6 +110,7 @@ one of:
 | `alert` | `^[a-z0-9_]{1,32}$` | `severity` (enum: `info`\|`warning`\|`critical`), `status` (enum: `firing`\|`resolved`), `source_service` (string), `message` (object) |
 | `research` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `topic` (string), `published` (string), `url` (string), `fetched_at` (string) |
 | `finding` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `url` (string), `topics` (string), `relevance_score` (number, 0-1), `why_it_matters` (string), `source` (string), `fetched_at` (string), `notes` (object) |
+| `vulnerability` | `^[a-z0-9_]{1,32}$` | `cve_id` (string), `product` (string), `summary` (string), `severity` (enum: `high`\|`critical`), `date_added` (string), `stack_match` (string), `affected_service` (string), `url` (string), `fetched_at` (string) |
 
 Any op on a key outside this schema (wrong shape, unknown entity/field,
 wrong type, out-of-range value, or an `op` incompatible with the field's
@@ -145,7 +146,7 @@ other.
 
 - **Node types**: `agent`, `event`, plus one per `world_state` entity
   (`region`, `service`, `incident`, `deployment`, `team`, `alert`,
-  `research`, `finding`).
+  `research`, `finding`, `vulnerability`).
 - **Edge types**:
   - `PROPOSED` — agent -> event
   - `AFFECTED` — event -> entity it touched
@@ -348,7 +349,7 @@ python3 scripts/agents/openrouter_agent.py
 
 ### Always-on personas
 
-Five hourly cron jobs each run one propose/evaluate/accept cycle against the
+Six hourly cron jobs each run one propose/evaluate/accept cycle against the
 live REST API, using `openrouter_agent.py`'s self-registration and
 evaluate/propose flow. Per-persona secrets live in
 `/root/insidedcpulse-secrets/agents/*.env` (gitignored, not in repo):
@@ -371,6 +372,14 @@ evaluate/propose flow. Per-persona secrets live in
   `insight` in `notes`. Evicts the oldest entry once more than 10 are
   present. Spec:
   `docs/superpowers/specs/2026-06-13-ai-research-agent-design.md`.
+- `threat-intel-agent` (`:15`) — deterministic, no LLM. Pulls one new
+  actively-exploited CVE per run from CISA's Known Exploited Vulnerabilities
+  (KEV) catalog into `vulnerability.*`, evicting the oldest entry once more
+  than 10 are present. Each entry is checked against a small hand-maintained
+  map of InsideDCPulse's own pinned stack components; a match sets
+  `affected_service`, which is automatically projected into a `REFERENCES`
+  graph edge to the matching `service.*`/`team.sre` node. Spec:
+  `docs/superpowers/specs/2026-06-14-threat-intel-agent-design.md`.
 
 ---
 

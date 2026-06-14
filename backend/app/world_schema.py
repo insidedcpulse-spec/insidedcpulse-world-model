@@ -74,6 +74,17 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "fetched_at": {"type": "string"},
         "notes": {"type": "object"},
     },
+    "vulnerability": {
+        "cve_id": {"type": "string"},
+        "product": {"type": "string"},
+        "summary": {"type": "string"},
+        "severity": {"type": "enum", "values": ["high", "critical"]},
+        "date_added": {"type": "string"},
+        "stack_match": {"type": "string"},
+        "affected_service": {"type": "string"},
+        "url": {"type": "string"},
+        "fetched_at": {"type": "string"},
+    },
 }
 
 
