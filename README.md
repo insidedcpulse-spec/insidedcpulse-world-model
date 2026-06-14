@@ -111,6 +111,7 @@ one of:
 | `research` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `topic` (string), `published` (string), `url` (string), `fetched_at` (string) |
 | `finding` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `url` (string), `topics` (string), `relevance_score` (number, 0-1), `why_it_matters` (string), `source` (string), `fetched_at` (string), `notes` (object) |
 | `vulnerability` | `^[a-z0-9_]{1,32}$` | `cve_id` (string), `product` (string), `summary` (string), `severity` (enum: `high`\|`critical`), `date_added` (string), `stack_match` (string), `affected_service` (string), `url` (string), `fetched_at` (string) |
+| `proposal` | `^[a-z0-9_]{1,32}$` | `title` (string), `summary` (string), `target_capability` (string), `source_paper_title` (string), `source_paper_url` (string), `relevance_score` (number, 0-1), `status` (enum: `proposed`\|`reviewed`\|`accepted`\|`rejected`), `context` (object), `fetched_at` (string) |
 
 Any op on a key outside this schema (wrong shape, unknown entity/field,
 wrong type, out-of-range value, or an `op` incompatible with the field's
@@ -146,7 +147,7 @@ other.
 
 - **Node types**: `agent`, `event`, plus one per `world_state` entity
   (`region`, `service`, `incident`, `deployment`, `team`, `alert`,
-  `research`, `finding`, `vulnerability`).
+  `research`, `finding`, `vulnerability`, `proposal`).
 - **Edge types**:
   - `PROPOSED` — agent -> event
   - `AFFECTED` — event -> entity it touched
@@ -349,7 +350,7 @@ python3 scripts/agents/openrouter_agent.py
 
 ### Always-on personas
 
-Six hourly cron jobs each run one propose/evaluate/accept cycle against the
+Seven hourly cron jobs each run one propose/evaluate/accept cycle against the
 live REST API, using `openrouter_agent.py`'s self-registration and
 evaluate/propose flow. Per-persona secrets live in
 `/root/insidedcpulse-secrets/agents/*.env` (gitignored, not in repo):
@@ -380,6 +381,14 @@ evaluate/propose flow. Per-persona secrets live in
   `affected_service`, which is automatically projected into a `REFERENCES`
   graph edge to the matching `service.*`/`team.sre` node. Spec:
   `docs/superpowers/specs/2026-06-14-threat-intel-agent-design.md`.
+- `agent-architect` (`:30`) — OpenRouter LLM persona. Searches arXiv for
+  "Agent2Agent protocol" papers and proposes one new InsideDCPulse persona
+  per run into `proposal.*` (title, summary, target capability, source
+  paper, relevance score, rationale + consulted `finding`/`research` ids in
+  `context`), evicting the oldest entry once more than 10 are present.
+  `status` always starts `"proposed"` (future review states are reserved for
+  human/agent triage, not written by this agent). Spec:
+  `docs/superpowers/specs/2026-06-14-agent-architect-design.md`.
 
 ---
 
