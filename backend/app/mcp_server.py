@@ -9,6 +9,15 @@ from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
+from app.graph_queries import (
+    MAX_CAUSAL_DEPTH,
+    MAX_RELATED_DEPTH,
+    find_related,
+    get_causal_edges,
+    get_neighbors,
+    get_node,
+    get_timeline,
+)
 from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
@@ -157,3 +166,74 @@ async def register_agent(name: str) -> dict:
         return await register_self_agent(pool, name, client_ip)
     except RateLimitExceeded as exc:
         raise ValueError(str(exc)) from exc
+
+
+@mcp.tool()
+async def get_graph_node(api_key: str, node_id: str) -> dict:
+    """Return a graph node plus its direct outgoing/incoming edges."""
+    await _authenticate(api_key, READ)
+    result = await get_node(get_pool(), node_id)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_graph_neighbors(
+    api_key: str, node_id: str, edge_type: str | None = None, direction: str = "both", limit: int = 50,
+) -> dict:
+    """List nodes directly connected to node_id, optionally filtered by edge_type. direction: 'out'|'in'|'both'."""
+    await _authenticate(api_key, READ)
+    if direction not in ("out", "in", "both"):
+        raise ValueError(f"invalid direction: {direction}")
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    result = await get_neighbors(get_pool(), node_id, edge_type, direction, limit)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_event_timeline(api_key: str, entity: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+    """Ordered event history: AFFECTED edges for `entity`, or the global event chain if omitted."""
+    await _authenticate(api_key, READ)
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    result = await get_timeline(get_pool(), entity, limit, offset)
+    if result is None:
+        raise ValueError(f"node not found: {entity}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_causal_chain(api_key: str, node_id: str, direction: str = "upstream", max_depth: int = 3) -> dict:
+    """Traverse CAUSED edges upstream (what caused node_id) or downstream (what node_id caused)."""
+    await _authenticate(api_key, READ)
+    if direction not in ("upstream", "downstream"):
+        raise ValueError(f"invalid direction: {direction}")
+    if not 1 <= max_depth <= MAX_CAUSAL_DEPTH:
+        raise ValueError(f"max_depth must be between 1 and {MAX_CAUSAL_DEPTH}")
+    result = await get_causal_edges(get_pool(), node_id, direction, max_depth)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def find_related_entities(
+    api_key: str, node_id: str, edge_types: list[str] | None = None, direction: str = "both",
+    max_depth: int = 2, limit: int = 50,
+) -> dict:
+    """BFS from node_id across any/specified edge types, up to max_depth hops. direction: 'out'|'in'|'both'."""
+    await _authenticate(api_key, READ)
+    if direction not in ("out", "in", "both"):
+        raise ValueError(f"invalid direction: {direction}")
+    if not 1 <= max_depth <= MAX_RELATED_DEPTH:
+        raise ValueError(f"max_depth must be between 1 and {MAX_RELATED_DEPTH}")
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    result = await find_related(get_pool(), node_id, edge_types, direction, max_depth, limit)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")

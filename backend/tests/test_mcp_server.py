@@ -291,3 +291,295 @@ async def test_register_agent_returned_key_resolves_to_self_serve_agent():
 
     assert hash_api_key(result["api_key"]) == captured["hash"]
     assert result["reputation"] == 0.3
+
+
+from app.mcp_server import get_graph_node
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"node": {"id": "incident.inc3"}, "edges_out": [], "edges_in": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_node", AsyncMock(return_value=fake_result)):
+        result = await get_graph_node(api_key="key", node_id="incident.inc3")
+
+    assert result == {"node": {"id": "incident.inc3"}, "edges_out": [], "edges_in": []}
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_graph_node(api_key="bad-key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_graph_node(api_key="key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_node", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await get_graph_node(api_key="key", node_id="service.ghost")
+
+
+from app.mcp_server import get_graph_neighbors
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"node_id": "service.checkout", "edge_type": None, "direction": "both", "neighbors": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_neighbors", AsyncMock(return_value=fake_result)):
+        result = await get_graph_neighbors(api_key="key", node_id="service.checkout")
+
+    assert result["node_id"] == "service.checkout"
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_graph_neighbors(api_key="bad-key", node_id="service.checkout")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_graph_neighbors(api_key="key", node_id="service.checkout")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_neighbors", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await get_graph_neighbors(api_key="key", node_id="service.ghost")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_invalid_direction():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid direction"):
+            await get_graph_neighbors(api_key="key", node_id="service.checkout", direction="sideways")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_neighbors_limit_out_of_range():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="limit must be between 1 and 200"):
+            await get_graph_neighbors(api_key="key", node_id="service.checkout", limit=500)
+
+
+from app.mcp_server import get_event_timeline
+
+
+@pytest.mark.asyncio
+async def test_get_event_timeline_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"entity": None, "events": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_timeline", AsyncMock(return_value=fake_result)):
+        result = await get_event_timeline(api_key="key")
+
+    assert result == {"entity": None, "events": []}
+
+
+@pytest.mark.asyncio
+async def test_get_event_timeline_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_event_timeline(api_key="bad-key")
+
+
+@pytest.mark.asyncio
+async def test_get_event_timeline_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_event_timeline(api_key="key")
+
+
+@pytest.mark.asyncio
+async def test_get_event_timeline_entity_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_timeline", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await get_event_timeline(api_key="key", entity="service.ghost")
+
+
+@pytest.mark.asyncio
+async def test_get_event_timeline_limit_out_of_range():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="limit must be between 1 and 200"):
+            await get_event_timeline(api_key="key", limit=0)
+
+
+from app.mcp_server import get_causal_chain
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"node_id": "incident.inc3", "direction": "upstream", "chain": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_causal_edges", AsyncMock(return_value=fake_result)):
+        result = await get_causal_chain(api_key="key", node_id="incident.inc3")
+
+    assert result["direction"] == "upstream"
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_causal_chain(api_key="bad-key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_causal_chain(api_key="key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_causal_edges", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await get_causal_chain(api_key="key", node_id="service.ghost")
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_invalid_direction():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid direction"):
+            await get_causal_chain(api_key="key", node_id="incident.inc3", direction="sideways")
+
+
+@pytest.mark.asyncio
+async def test_get_causal_chain_max_depth_out_of_range():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="max_depth must be between 1 and 10"):
+            await get_causal_chain(api_key="key", node_id="incident.inc3", max_depth=11)
+
+
+from app.mcp_server import find_related_entities
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"node_id": "service.checkout", "max_depth": 2, "related": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.find_related", AsyncMock(return_value=fake_result)):
+        result = await find_related_entities(api_key="key", node_id="service.checkout")
+
+    assert result["max_depth"] == 2
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await find_related_entities(api_key="bad-key", node_id="service.checkout")
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await find_related_entities(api_key="key", node_id="service.checkout")
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.find_related", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await find_related_entities(api_key="key", node_id="service.ghost")
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_invalid_direction():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid direction"):
+            await find_related_entities(api_key="key", node_id="service.checkout", direction="sideways")
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_max_depth_out_of_range():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="max_depth must be between 1 and 5"):
+            await find_related_entities(api_key="key", node_id="service.checkout", max_depth=6)
+
+
+@pytest.mark.asyncio
+async def test_find_related_entities_limit_out_of_range():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="limit must be between 1 and 200"):
+            await find_related_entities(api_key="key", node_id="service.checkout", limit=0)

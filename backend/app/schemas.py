@@ -102,3 +102,92 @@ class CommitResponse(BaseModel):
     event_id: uuid.UUID
     status: Literal["accepted"] = "accepted"
     world_state_diff: dict[str, Any]
+
+
+class GraphNode(BaseModel):
+    id: str
+    type: str
+    label: str
+    metadata: dict
+    created_at: datetime
+    updated_at: datetime
+
+
+class GraphEdge(BaseModel):
+    source_node: str
+    target_node: str
+    edge_type: str
+    weight: float
+    metadata: dict
+    source_event_id: int | None
+    created_at: datetime
+
+
+class GraphNodeDetail(BaseModel):
+    node: GraphNode
+    edges_out: list[GraphEdge]
+    edges_in: list[GraphEdge]
+
+
+class NeighborEntry(BaseModel):
+    node: GraphNode
+    edge: GraphEdge
+    direction: Literal["out", "in"]
+
+
+class NeighborsResponse(BaseModel):
+    node_id: str
+    edge_type: str | None
+    direction: Literal["out", "in", "both"]
+    neighbors: list[NeighborEntry]
+
+
+class PathResponse(BaseModel):
+    from_id: str
+    to_id: str
+    found: bool
+    path: list[str]
+    edges: list[GraphEdge]
+    depth: int
+
+
+class TimelineEntry(BaseModel):
+    event_id: str
+    label: str
+    metadata: dict
+    weight: float | None = None
+    edge_metadata: dict | None = None
+    source_event_id: int | None = None
+    created_at: datetime
+
+
+class TimelineResponse(BaseModel):
+    entity: str | None
+    events: list[TimelineEntry]
+
+
+class CausalChainEntry(BaseModel):
+    depth: int
+    source_node: str
+    target_node: str
+    weight: float
+    metadata: dict
+    source_event_id: int | None
+
+
+class CausalChainResponse(BaseModel):
+    node_id: str
+    direction: Literal["upstream", "downstream"]
+    chain: list[CausalChainEntry]
+
+
+class RelatedEntity(BaseModel):
+    node: GraphNode
+    distance: int
+    edge_type: str
+
+
+class RelatedEntitiesResponse(BaseModel):
+    node_id: str
+    max_depth: int
+    related: list[RelatedEntity]
