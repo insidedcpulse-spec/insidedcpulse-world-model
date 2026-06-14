@@ -272,3 +272,43 @@ def test_rejects_merge_on_vulnerability_summary():
 def test_set_vulnerability_affected_service_empty_string_valid():
     op = WorldOp(op="set", key="vulnerability.cve_2026_35273.affected_service", value="")
     assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_proposal_title_valid():
+    op = WorldOp(op="set", key="proposal.2506_01234.title", value="capability-broker-agent")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_set_proposal_status_valid():
+    op = WorldOp(op="set", key="proposal.2506_01234.status", value="proposed")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_proposal_invalid_status():
+    op = WorldOp(op="set", key="proposal.2506_01234.status", value="implemented")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "'status' must be one of ['proposed', 'reviewed', 'accepted', 'rejected'], got 'implemented'"
+
+
+def test_rejects_proposal_relevance_score_out_of_range():
+    op = WorldOp(op="set", key="proposal.2506_01234.relevance_score", value=1.5)
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "value 1.5 for 'relevance_score' above maximum 1"
+
+
+def test_merge_on_proposal_context_valid():
+    op = WorldOp(
+        op="merge",
+        key="proposal.2506_01234.context",
+        value={"consulted": ["finding.2601_03236"], "rationale": "extends agent memory work"},
+    )
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_proposal_unknown_field():
+    op = WorldOp(op="set", key="proposal.2506_01234.unknown_field", value="x")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "unknown field 'unknown_field' for entity 'proposal'"
