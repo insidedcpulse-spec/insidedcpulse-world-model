@@ -67,6 +67,16 @@ vulnerability.<id>.affected_service  string
 vulnerability.<id>.url               string
 vulnerability.<id>.fetched_at        string
 
+proposal.<id>.title                 string
+proposal.<id>.summary               string
+proposal.<id>.target_capability     string
+proposal.<id>.source_paper_title    string
+proposal.<id>.source_paper_url      string
+proposal.<id>.relevance_score       number 0-1
+proposal.<id>.status                enum: proposed, reviewed, accepted, rejected
+proposal.<id>.context               object
+proposal.<id>.fetched_at            string
+
 Valid ops: {"op": "set"|"increment"|"merge", "key": "<entity>.<id>.<field>", "value": ...}
 """
 
