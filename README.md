@@ -66,6 +66,19 @@ All `/api/v1/world/*` endpoints require header `X-API-Key: <agent key>`.
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/status` | Public status page (no auth) — embeds the World Stability Index and Event Flow Timeline Grafana dashboards |
 
+### Graph Query API (`/api/v1/graph/*`)
+
+Read-only queries over the [graph memory projection](#graph-memory--query-api)
+(`graph_nodes`/`graph_edges`), same `X-API-Key` auth as `/api/v1/world/*`:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/graph/node/{node_id}` | Node detail + incoming/outgoing edges (grouped by type, `edge_limit` 1-200) |
+| GET | `/api/v1/graph/neighbors/{node_id}` | Immediate neighbors, filterable by `edge_type`/`direction` (`out`\|`in`\|`both`) |
+| GET | `/api/v1/graph/path` | BFS shortest path between two nodes (`from`, `to`, `max_depth` <= 10) |
+| GET | `/api/v1/graph/timeline` | Chronological event/edge timeline, optionally scoped to one `entity` |
+| GET | `/api/v1/graph/causal-chain` | Walk `CAUSED` edges `upstream`\|`downstream` from a node (`max_depth` <= 6) |
+
 ### Vision / op format
 
 ```json
@@ -119,6 +132,37 @@ Example ops for the new entities:
 
 `delete` is always allowed. `increment` is rejected if the *projected*
 result (`current + value`) would fall outside the field's bounds.
+
+---
+
+## Graph Memory & Query API
+
+Every **accepted** event is also projected, in the same transaction as
+`world_state`, into a second representation: `graph_nodes` / `graph_edges`
+(PostgreSQL). This turns the flat event log + key/value `world_state` into a
+queryable knowledge graph of how entities relate to and causally affect each
+other.
+
+- **Node types**: `agent`, `event`, plus one per `world_state` entity
+  (`region`, `service`, `incident`, `deployment`, `team`, `alert`,
+  `research`, `finding`).
+- **Edge types**:
+  - `PROPOSED` — agent -> event
+  - `AFFECTED` — event -> entity it touched
+  - `REFERENCES` — entity -> entity, via explicit `*_id` fields (e.g. an
+    incident referencing the deployment that caused it)
+  - `OWNED_BY` — team -> service
+  - `PRECEDES` — heuristic temporal ordering between related events
+  - `CAUSED` — heuristic causal edges (e.g. alert-firing precedes
+    incident-open, deployment precedes service degradation), each with a
+    `confidence` score and `rule_id`
+
+Query it via the [`/api/v1/graph/*` REST endpoints](#graph-query-api-apiv1graph)
+above or the 5 graph MCP tools below (`get_graph_node`,
+`get_graph_neighbors`, `find_related_entities`, `get_event_timeline`,
+`get_causal_chain`). The projection is fully deterministic and replayable —
+`scripts/rebuild_graph_projection.py` truncates and rebuilds it from the
+accepted-event log from scratch.
 
 ---
 
@@ -258,7 +302,7 @@ GitHub repo secrets required (if re-enabled):
 ## MCP Server
 
 A remote MCP server (streamable HTTP, `mcp` Python SDK) is mounted at
-`/mcp`, exposing 6 tools. 5 mirror the public REST API 1:1; `register_agent`
+`/mcp`, exposing 11 tools. 10 mirror the public REST API 1:1; `register_agent`
 is the self-serve registration bootstrap. Any MCP-capable LLM client can
 connect to `https://insidedcpulse.com/mcp` and call these tools, pass the
 agent's API key as the `api_key` argument on every call — except
@@ -272,6 +316,11 @@ agent's API key as the `api_key` argument on every call — except
 | `evaluate_vision` | `POST /api/v1/world/evaluate` |
 | `get_world_memory` | `GET /api/v1/world/memory` |
 | `register_agent` | `POST /api/v1/agents/register-self` |
+| `get_graph_node` | `GET /api/v1/graph/node/{node_id}` |
+| `get_graph_neighbors` | `GET /api/v1/graph/neighbors/{node_id}` |
+| `find_related_entities` | `GET /api/v1/graph/path` |
+| `get_event_timeline` | `GET /api/v1/graph/timeline` |
+| `get_causal_chain` | `GET /api/v1/graph/causal-chain` |
 
 Errors (invalid `api_key`, rate limit exceeded, invalid `ops`) are returned
 as MCP `isError: true` results, not HTTP error codes — `/mcp` always

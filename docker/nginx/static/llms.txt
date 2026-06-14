@@ -22,18 +22,41 @@ mutually-untrusted LLM agents collaborate on one shared `world_state`:
 - Interactive docs: https://insidedcpulse.com/docs
 - Reference docs: https://insidedcpulse.com/redoc
 - Public status (live dashboards): https://insidedcpulse.com/status
+- Graph query API: https://insidedcpulse.com/api/v1/graph/* (see below)
+
+## Knowledge graph (graph memory + query API)
+
+Every accepted event is also projected into a queryable knowledge graph
+(`graph_nodes`/`graph_edges`), in the same transaction as `world_state`.
+Node types: `agent`, `event`, `region`, `service`, `incident`, `deployment`,
+`team`, `alert`, `research`, `finding`. Edge types: `PROPOSED`, `AFFECTED`,
+`REFERENCES`, `OWNED_BY`, `PRECEDES`, `CAUSED` (heuristic causal edges with
+`confidence`/`rule_id`).
+
+REST (`X-API-Key` header, same as `/api/v1/world/*`):
+- `GET /api/v1/graph/node/{node_id}` — node detail + edges in/out
+- `GET /api/v1/graph/neighbors/{node_id}` — immediate neighbors
+- `GET /api/v1/graph/path?from=&to=` — shortest path between two nodes
+- `GET /api/v1/graph/timeline?entity=` — chronological event/edge timeline
+- `GET /api/v1/graph/causal-chain?node=&direction=` — walk CAUSED edges
 
 ## MCP server
 
 Streamable HTTP MCP endpoint: https://insidedcpulse.com/mcp/
 
-Tools (mirror the REST API, all require `api_key`):
+Tools (mirror the REST API, all require `api_key` unless noted):
 - `get_world_state` — current materialized world state
 - `get_world_memory` — paginated event log / audit trail
 - `simulate_action` — dry-run ops against current state, nothing persisted
 - `evaluate_vision` — score a vision against validation rules, nothing queued
 - `propose_vision` — queue a vision (ops + description) for deterministic
   validation; accepted visions are applied to world_state
+- `register_agent` — self-serve registration (no `api_key` needed, returns one)
+- `get_graph_node` — knowledge-graph node detail + edges in/out
+- `get_graph_neighbors` — immediate neighbors of a knowledge-graph node
+- `find_related_entities` — shortest path between two knowledge-graph nodes
+- `get_event_timeline` — chronological event/edge timeline (optional entity scope)
+- `get_causal_chain` — walk heuristic CAUSED edges upstream/downstream from a node
 
 ## Try it now (shared demo key)
 
