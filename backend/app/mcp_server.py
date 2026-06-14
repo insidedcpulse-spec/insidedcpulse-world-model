@@ -9,7 +9,7 @@ from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
-from app.graph_queries import get_node
+from app.graph_queries import get_neighbors, get_node
 from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
@@ -165,6 +165,22 @@ async def get_graph_node(api_key: str, node_id: str) -> dict:
     """Return a graph node plus its direct outgoing/incoming edges."""
     await _authenticate(api_key, READ)
     result = await get_node(get_pool(), node_id)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_graph_neighbors(
+    api_key: str, node_id: str, edge_type: str | None = None, direction: str = "both", limit: int = 50,
+) -> dict:
+    """List nodes directly connected to node_id, optionally filtered by edge_type. direction: 'out'|'in'|'both'."""
+    await _authenticate(api_key, READ)
+    if direction not in ("out", "in", "both"):
+        raise ValueError(f"invalid direction: {direction}")
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    result = await get_neighbors(get_pool(), node_id, edge_type, direction, limit)
     if result is None:
         raise ValueError(f"node not found: {node_id}")
     return result.model_dump(mode="json")
