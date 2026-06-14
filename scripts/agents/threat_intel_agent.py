@@ -40,7 +40,13 @@ STACK_MATCHES: list[tuple[list[str], str, str]] = [
     (["grafana"], "grafana:13.0.2", "team.sre"),
     (["prometheus"], "prometheus:v3.12.0", "team.sre"),
     (["certbot", "let's encrypt", "acme"], "certbot:v5.6.0", "team.sre"),
-    (["fastapi", "starlette", "uvicorn", "mcp"], "fastapi/starlette/mcp", "team.sre"),
+    (["fastapi", "starlette", "uvicorn", "mcp", "pydantic", "orjson", "sse-starlette"], "fastapi/starlette/mcp", "team.sre"),
+    (["asyncpg"], "asyncpg==0.30.0", "service.payments_db"),
+    (["docker", "containerd", "runc", "moby"], "docker (container runtime)", "team.sre"),
+    (["alpine linux", "alpine"], "alpine (nginx/redis/postgres base images)", "team.sre"),
+    (["openssl"], "openssl (TLS)", "team.sre"),
+    (["debian"], "debian (python:3.12-slim base)", "team.sre"),
+    (["linux kernel"], "linux kernel (host OS)", "team.sre"),
 ]
 
 
