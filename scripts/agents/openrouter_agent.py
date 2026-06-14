@@ -188,6 +188,7 @@ def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) ->
                 {"role": "user", "content": user_msg},
             ],
             "response_format": {"type": "json_object"},
+            "reasoning": {"effort": "low"},
         },
         timeout=60,
     )

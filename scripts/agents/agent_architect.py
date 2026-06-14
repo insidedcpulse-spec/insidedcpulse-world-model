@@ -16,6 +16,7 @@ from openrouter_agent import (
     get_world_state,
     load_env,
     propose_vision,
+    save_env,
 )
 from research_agent import sanitize_id, search_arxiv
 
@@ -26,7 +27,12 @@ PROPOSAL_FIELDS = [
 ]
 MAX_PROPOSAL_ENTRIES = 10
 RELEVANCE_THRESHOLD = 0.3
-A2A_QUERY = "Agent2Agent protocol"
+A2A_QUERIES = [
+    "Agent2Agent protocol",
+    "agent interoperability protocol",
+    "agent interoperability",
+    "multi-agent system protocol",
+]
 CONTEXT_ENTITIES = ("finding", "research")
 MAX_CONTEXT_ENTRIES = 5
 
@@ -120,7 +126,13 @@ def main() -> None:
         if len(parts) == 3 and parts[0] == "proposal" and parts[2] == "fetched_at":
             existing_ids[parts[1]] = value["value"]
 
-    papers = search_arxiv(A2A_QUERY, max_results=10)
+    query_index = int(env.get("A2A_QUERY_INDEX", "0"))
+    query = A2A_QUERIES[query_index % len(A2A_QUERIES)]
+    env["A2A_QUERY_INDEX"] = str((query_index + 1) % len(A2A_QUERIES))
+    save_env(env_path, env)
+    print(f"== query: {query} ==")
+
+    papers = search_arxiv(query, max_results=10)
 
     candidates = []
     for paper in papers:
