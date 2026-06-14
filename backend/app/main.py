@@ -9,7 +9,7 @@ from app.mcp_guard import MCPMethodGuardMiddleware
 from app.mcp_server import mcp
 from app.metrics import MetricsMiddleware, metrics_response
 from app.redis_client import close_redis, get_redis
-from app.routers import agents, world, ws
+from app.routers import agents, graph, world, ws
 from app.worker import worker_loop
 
 logging.basicConfig(level=logging.INFO)
@@ -48,6 +48,7 @@ app.add_middleware(MetricsMiddleware)
 
 app.include_router(world.router)
 app.include_router(agents.router)
+app.include_router(graph.router)
 app.include_router(ws.router)
 
 
