@@ -172,3 +172,43 @@ async def get_timeline(
             limit, offset,
         )
     return TimelineResponse(entity=entity, events=[TimelineEntry(**r) for r in rows])
+
+
+async def get_causal_edges(
+    pool: asyncpg.Pool, node_id: str, direction: str, max_depth: int
+) -> CausalChainResponse | None:
+    """direction: 'upstream' (what caused node_id) | 'downstream' (what node_id caused)."""
+    if await _get_raw_node(pool, node_id) is None:
+        return None
+
+    visited = {node_id}
+    frontier = [node_id]
+    chain: list[CausalChainEntry] = []
+    for depth in range(1, max_depth + 1):
+        if direction == "upstream":
+            rows = await pool.fetch(
+                "SELECT source_node, target_node, weight, metadata, source_event_id "
+                "FROM graph_edges WHERE edge_type = 'CAUSED' AND target_node = ANY($1)",
+                frontier,
+            )
+            other_key = "source_node"
+        else:
+            rows = await pool.fetch(
+                "SELECT source_node, target_node, weight, metadata, source_event_id "
+                "FROM graph_edges WHERE edge_type = 'CAUSED' AND source_node = ANY($1)",
+                frontier,
+            )
+            other_key = "target_node"
+
+        next_frontier = []
+        for r in rows:
+            chain.append(CausalChainEntry(depth=depth, **r))
+            other = r[other_key]
+            if other not in visited:
+                visited.add(other)
+                next_frontier.append(other)
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    return CausalChainResponse(node_id=node_id, direction=direction, chain=chain)

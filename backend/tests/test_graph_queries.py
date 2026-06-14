@@ -246,3 +246,79 @@ async def test_get_timeline_entity_not_found():
     result = await get_timeline(pool, "service.ghost", 50, 0)
 
     assert result is None
+
+
+from app.graph_queries import get_causal_edges
+
+
+@pytest.mark.asyncio
+async def test_get_causal_edges_upstream():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("incident.inc3", "incident", "incident.inc3")
+    pool.fetch.side_effect = [
+        [{"source_node": "alert.a1", "target_node": "incident.inc3", "weight": 0.63,
+          "metadata": {"rule_id": "alert_precedes_incident"}, "source_event_id": 40}],
+        [],
+    ]
+
+    result = await get_causal_edges(pool, "incident.inc3", "upstream", 3)
+
+    assert result.node_id == "incident.inc3"
+    assert result.direction == "upstream"
+    assert len(result.chain) == 1
+    assert result.chain[0].depth == 1
+    assert result.chain[0].source_node == "alert.a1"
+
+
+@pytest.mark.asyncio
+async def test_get_causal_edges_downstream_multi_depth():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("deployment.checkout_v2", "deployment", "deployment.checkout_v2")
+    pool.fetch.side_effect = [
+        [{"source_node": "deployment.checkout_v2", "target_node": "service.checkout", "weight": 0.7,
+          "metadata": {"rule_id": "deployment_precedes_degradation"}, "source_event_id": 50}],
+        [{"source_node": "service.checkout", "target_node": "incident.inc4", "weight": 0.6,
+          "metadata": {"rule_id": "alert_precedes_incident"}, "source_event_id": 51}],
+        [],
+    ]
+
+    result = await get_causal_edges(pool, "deployment.checkout_v2", "downstream", 3)
+
+    assert [c.depth for c in result.chain] == [1, 2]
+    assert result.chain[1].target_node == "incident.inc4"
+
+
+@pytest.mark.asyncio
+async def test_get_causal_edges_empty_chain():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("region.eu", "region", "region.eu")
+    pool.fetch.return_value = []
+
+    result = await get_causal_edges(pool, "region.eu", "upstream", 3)
+
+    assert result.chain == []
+
+
+@pytest.mark.asyncio
+async def test_get_causal_edges_cycle_terminates():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("incident.a", "incident", "incident.a")
+    pool.fetch.side_effect = [
+        [{"source_node": "incident.a", "target_node": "incident.b", "weight": 1.0, "metadata": {}, "source_event_id": 1}],
+        [{"source_node": "incident.b", "target_node": "incident.a", "weight": 1.0, "metadata": {}, "source_event_id": 2}],
+    ]
+
+    result = await get_causal_edges(pool, "incident.a", "downstream", 5)
+
+    assert len(result.chain) == 2
+    assert pool.fetch.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_causal_edges_not_found():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = None
+
+    result = await get_causal_edges(pool, "service.ghost", "upstream", 3)
+
+    assert result is None
