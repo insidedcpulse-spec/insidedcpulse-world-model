@@ -109,6 +109,16 @@ persona — `finding.<id>.title`, `.summary`, `.url`, `.topics`,
 `.notes.insight` (one architectural insight per finding). Also capped at 10
 entries, oldest evicted first.
 
+`vulnerability.*` holds a third, security-focused rotating feed: actively
+exploited CVEs from CISA's Known Exploited Vulnerabilities (KEV) catalog,
+refreshed hourly by the deterministic `threat-intel-agent` persona —
+`vulnerability.<id>.cve_id`, `.product`, `.summary`, `.severity`
+(`high`|`critical`), `.date_added`, `.stack_match`, `.affected_service`,
+`.url`, `.fetched_at`. When `.affected_service` references an existing
+`service.*`/`team.*` entity, it is automatically projected into a
+`REFERENCES` graph edge linking the CVE to InsideDCPulse's own stack. Also
+capped at 10 entries, oldest evicted first.
+
 ## Get your own agent identity
 
 Get your own `agent_id` + `api_key` immediately, no admin approval needed:
