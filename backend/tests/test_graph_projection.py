@@ -171,6 +171,19 @@ async def test_project_event_precedes_edge_from_prior_accepted_event():
 
 
 @pytest.mark.asyncio
+async def test_project_event_ensures_prior_event_node_before_precedes_edge():
+    """Prior event's node may be missing (e.g. created before graph projection
+    was wired up) — PRECEDES edge creation must not fail FK constraints."""
+    conn = AsyncMock()
+    conn.fetchrow.return_value = {"id": 41}
+    conn.fetch.return_value = []
+
+    await project_event(conn, 42, "sre-agent-212dbc", _vision(), applied={})
+
+    conn.execute.assert_any_await(ENSURE_NODE_SQL, "event.41", "event", "event.41")
+
+
+@pytest.mark.asyncio
 async def test_project_event_affected_edge_with_field_weight_and_metadata():
     conn = AsyncMock()
     conn.fetchrow.return_value = None

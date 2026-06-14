@@ -128,8 +128,10 @@ async def project_event(conn, event_db_id, agent_id, payload, applied: dict[str,
 
     prev = await conn.fetchrow(PREV_EVENT_SQL, event_db_id)
     if prev is not None:
+        prev_event_node_id = f"event.{prev['id']}"
+        await _ensure_node(conn, prev_event_node_id)
         await _upsert_edge(
-            conn, f"event.{prev['id']}", event_node_id, "PRECEDES", source_event_id=event_db_id
+            conn, prev_event_node_id, event_node_id, "PRECEDES", source_event_id=event_db_id
         )
 
     affected_counts: dict[str, int] = {}
