@@ -9,7 +9,7 @@ from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
-from app.graph_queries import get_neighbors, get_node
+from app.graph_queries import get_neighbors, get_node, get_timeline
 from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
@@ -183,4 +183,16 @@ async def get_graph_neighbors(
     result = await get_neighbors(get_pool(), node_id, edge_type, direction, limit)
     if result is None:
         raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_event_timeline(api_key: str, entity: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+    """Ordered event history: AFFECTED edges for `entity`, or the global event chain if omitted."""
+    await _authenticate(api_key, READ)
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    result = await get_timeline(get_pool(), entity, limit, offset)
+    if result is None:
+        raise ValueError(f"node not found: {entity}")
     return result.model_dump(mode="json")
