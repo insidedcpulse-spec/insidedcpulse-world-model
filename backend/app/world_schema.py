@@ -85,6 +85,17 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "url": {"type": "string"},
         "fetched_at": {"type": "string"},
     },
+    "proposal": {
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "target_capability": {"type": "string"},
+        "source_paper_title": {"type": "string"},
+        "source_paper_url": {"type": "string"},
+        "relevance_score": {"type": "number", "min": 0, "max": 1},
+        "status": {"type": "enum", "values": ["proposed", "reviewed", "accepted", "rejected"]},
+        "context": {"type": "object"},
+        "fetched_at": {"type": "string"},
+    },
 }
 
 

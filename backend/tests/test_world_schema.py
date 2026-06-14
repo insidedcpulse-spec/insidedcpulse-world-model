@@ -122,3 +122,32 @@ def test_get_field_spec_vulnerability_severity():
 
 def test_get_field_spec_vulnerability_affected_service():
     assert get_field_spec("vulnerability", "affected_service") == {"type": "string"}
+
+
+def test_parse_key_valid_proposal():
+    assert parse_key("proposal.2506_01234.status") == KeyParts(
+        "proposal", "2506_01234", "status"
+    )
+
+
+def test_get_field_spec_proposal_title():
+    assert get_field_spec("proposal", "title") == {"type": "string"}
+
+
+def test_get_field_spec_proposal_relevance_score():
+    assert get_field_spec("proposal", "relevance_score") == {
+        "type": "number",
+        "min": 0,
+        "max": 1,
+    }
+
+
+def test_get_field_spec_proposal_status():
+    assert get_field_spec("proposal", "status") == {
+        "type": "enum",
+        "values": ["proposed", "reviewed", "accepted", "rejected"],
+    }
+
+
+def test_get_field_spec_proposal_context():
+    assert get_field_spec("proposal", "context") == {"type": "object"}
