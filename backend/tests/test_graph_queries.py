@@ -42,3 +42,82 @@ async def test_get_node_not_found():
     result = await get_node(pool, "service.nonexistent")
 
     assert result is None
+
+
+from app.graph_queries import get_neighbors
+
+
+def _neighbor_row(source, target, edge_type, n_id, n_type):
+    row = _edge_row(source, target, edge_type)
+    row.update({
+        "n_id": n_id, "n_type": n_type, "n_label": n_id,
+        "n_metadata": {}, "n_created_at": NOW, "n_updated_at": NOW,
+    })
+    return row
+
+
+@pytest.mark.asyncio
+async def test_get_neighbors_out():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+    pool.fetch.return_value = [_neighbor_row("service.checkout", "team.sre", "OWNED_BY", "team.sre", "team")]
+
+    result = await get_neighbors(pool, "service.checkout", None, "out", 50)
+
+    assert result.node_id == "service.checkout"
+    assert len(result.neighbors) == 1
+    assert result.neighbors[0].direction == "out"
+    assert result.neighbors[0].node.id == "team.sre"
+    assert result.neighbors[0].edge.edge_type == "OWNED_BY"
+    pool.fetch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_neighbors_both_directions():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+    pool.fetch.side_effect = [
+        [_neighbor_row("service.checkout", "team.sre", "OWNED_BY", "team.sre", "team")],
+        [_neighbor_row("incident.inc3", "service.checkout", "REFERENCES", "incident.inc3", "incident")],
+    ]
+
+    result = await get_neighbors(pool, "service.checkout", None, "both", 50)
+
+    assert [n.direction for n in result.neighbors] == ["out", "in"]
+    assert result.neighbors[1].node.id == "incident.inc3"
+    assert pool.fetch.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_neighbors_limit_skips_in_query_when_exhausted():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+    pool.fetch.return_value = [_neighbor_row("service.checkout", "team.sre", "OWNED_BY", "team.sre", "team")]
+
+    result = await get_neighbors(pool, "service.checkout", None, "both", 1)
+
+    assert len(result.neighbors) == 1
+    pool.fetch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_neighbors_edge_type_filter_passed_through():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+    pool.fetch.return_value = []
+
+    await get_neighbors(pool, "service.checkout", "OWNED_BY", "out", 50)
+
+    args, _ = pool.fetch.call_args
+    assert args[2] == "OWNED_BY"
+
+
+@pytest.mark.asyncio
+async def test_get_neighbors_not_found():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = None
+
+    result = await get_neighbors(pool, "service.ghost", None, "both", 50)
+
+    assert result is None
+    pool.fetch.assert_not_called()

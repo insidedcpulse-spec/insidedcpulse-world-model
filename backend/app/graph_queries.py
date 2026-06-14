@@ -46,3 +46,54 @@ async def get_node(pool: asyncpg.Pool, node_id: str) -> GraphNodeDetail | None:
         edges_out=[GraphEdge(**e) for e in edges_out],
         edges_in=[GraphEdge(**e) for e in edges_in],
     )
+
+
+def _neighbor_entry(row, direction: str) -> NeighborEntry:
+    return NeighborEntry(
+        node=GraphNode(
+            id=row["n_id"], type=row["n_type"], label=row["n_label"],
+            metadata=row["n_metadata"], created_at=row["n_created_at"], updated_at=row["n_updated_at"],
+        ),
+        edge=GraphEdge(
+            source_node=row["source_node"], target_node=row["target_node"], edge_type=row["edge_type"],
+            weight=row["weight"], metadata=row["metadata"], source_event_id=row["source_event_id"],
+            created_at=row["created_at"],
+        ),
+        direction=direction,
+    )
+
+
+async def get_neighbors(
+    pool: asyncpg.Pool, node_id: str, edge_type: str | None, direction: str, limit: int
+) -> NeighborsResponse | None:
+    """direction: 'out' | 'in' | 'both'."""
+    if await _get_raw_node(pool, node_id) is None:
+        return None
+
+    neighbors: list[NeighborEntry] = []
+    if direction in ("out", "both"):
+        rows = await pool.fetch(
+            "SELECT e.source_node, e.target_node, e.edge_type, e.weight, e.metadata, e.source_event_id, e.created_at, "
+            "n.id AS n_id, n.type AS n_type, n.label AS n_label, n.metadata AS n_metadata, "
+            "n.created_at AS n_created_at, n.updated_at AS n_updated_at "
+            "FROM graph_edges e JOIN graph_nodes n ON n.id = e.target_node "
+            "WHERE e.source_node = $1 AND ($2::text IS NULL OR e.edge_type = $2) "
+            "ORDER BY e.edge_type, e.target_node LIMIT $3",
+            node_id, edge_type, limit,
+        )
+        neighbors += [_neighbor_entry(r, "out") for r in rows]
+    if direction in ("in", "both"):
+        remaining = limit - len(neighbors)
+        if remaining > 0:
+            rows = await pool.fetch(
+                "SELECT e.source_node, e.target_node, e.edge_type, e.weight, e.metadata, e.source_event_id, e.created_at, "
+                "n.id AS n_id, n.type AS n_type, n.label AS n_label, n.metadata AS n_metadata, "
+                "n.created_at AS n_created_at, n.updated_at AS n_updated_at "
+                "FROM graph_edges e JOIN graph_nodes n ON n.id = e.source_node "
+                "WHERE e.target_node = $1 AND ($2::text IS NULL OR e.edge_type = $2) "
+                "ORDER BY e.edge_type, e.source_node LIMIT $3",
+                node_id, edge_type, remaining,
+            )
+            neighbors += [_neighbor_entry(r, "in") for r in rows]
+
+    return NeighborsResponse(node_id=node_id, edge_type=edge_type, direction=direction, neighbors=neighbors)
