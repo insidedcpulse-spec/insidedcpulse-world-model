@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
@@ -9,13 +10,14 @@ NOW = datetime(2026, 6, 14, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _node_row(node_id="incident.inc3", node_type="incident", label="incident.inc3"):
-    return {"id": node_id, "type": node_type, "label": label, "metadata": {}, "created_at": NOW, "updated_at": NOW}
+    # asyncpg returns jsonb columns as str (no codec configured)
+    return {"id": node_id, "type": node_type, "label": label, "metadata": "{}", "created_at": NOW, "updated_at": NOW}
 
 
 def _edge_row(source="incident.inc3", target="service.checkout", edge_type="REFERENCES"):
     return {
         "source_node": source, "target_node": target, "edge_type": edge_type,
-        "weight": 1.0, "metadata": {}, "source_event_id": 42, "created_at": NOW,
+        "weight": 1.0, "metadata": "{}", "source_event_id": 42, "created_at": NOW,
     }
 
 
@@ -51,7 +53,7 @@ def _neighbor_row(source, target, edge_type, n_id, n_type):
     row = _edge_row(source, target, edge_type)
     row.update({
         "n_id": n_id, "n_type": n_type, "n_label": n_id,
-        "n_metadata": {}, "n_created_at": NOW, "n_updated_at": NOW,
+        "n_metadata": "{}", "n_created_at": NOW, "n_updated_at": NOW,
     })
     return row
 
@@ -211,8 +213,8 @@ async def test_get_timeline_for_entity():
     pool = AsyncMock()
     pool.fetchrow.return_value = _node_row("incident.inc3", "incident", "incident.inc3")
     pool.fetch.return_value = [{
-        "event_id": "event.42", "label": "mark incident open", "metadata": {"event_type": "vision"},
-        "weight": 1.0, "edge_metadata": {"fields": {"status": "open"}}, "source_event_id": 42, "created_at": NOW,
+        "event_id": "event.42", "label": "mark incident open", "metadata": json.dumps({"event_type": "vision"}),
+        "weight": 1.0, "edge_metadata": json.dumps({"fields": {"status": "open"}}), "source_event_id": 42, "created_at": NOW,
     }]
 
     result = await get_timeline(pool, "incident.inc3", 50, 0)
@@ -227,8 +229,8 @@ async def test_get_timeline_for_entity():
 async def test_get_timeline_global():
     pool = AsyncMock()
     pool.fetch.return_value = [{
-        "event_id": "event.43", "label": "deploy checkout v2", "metadata": {"event_type": "action"},
-        "weight": None, "edge_metadata": {}, "source_event_id": None, "created_at": NOW,
+        "event_id": "event.43", "label": "deploy checkout v2", "metadata": json.dumps({"event_type": "action"}),
+        "weight": None, "edge_metadata": "{}", "source_event_id": None, "created_at": NOW,
     }]
 
     result = await get_timeline(pool, None, 50, 0)
@@ -257,7 +259,7 @@ async def test_get_causal_edges_upstream():
     pool.fetchrow.return_value = _node_row("incident.inc3", "incident", "incident.inc3")
     pool.fetch.side_effect = [
         [{"source_node": "alert.a1", "target_node": "incident.inc3", "weight": 0.63,
-          "metadata": {"rule_id": "alert_precedes_incident"}, "source_event_id": 40}],
+          "metadata": json.dumps({"rule_id": "alert_precedes_incident"}), "source_event_id": 40}],
         [],
     ]
 
@@ -276,9 +278,9 @@ async def test_get_causal_edges_downstream_multi_depth():
     pool.fetchrow.return_value = _node_row("deployment.checkout_v2", "deployment", "deployment.checkout_v2")
     pool.fetch.side_effect = [
         [{"source_node": "deployment.checkout_v2", "target_node": "service.checkout", "weight": 0.7,
-          "metadata": {"rule_id": "deployment_precedes_degradation"}, "source_event_id": 50}],
+          "metadata": json.dumps({"rule_id": "deployment_precedes_degradation"}), "source_event_id": 50}],
         [{"source_node": "service.checkout", "target_node": "incident.inc4", "weight": 0.6,
-          "metadata": {"rule_id": "alert_precedes_incident"}, "source_event_id": 51}],
+          "metadata": json.dumps({"rule_id": "alert_precedes_incident"}), "source_event_id": 51}],
         [],
     ]
 
@@ -304,8 +306,8 @@ async def test_get_causal_edges_cycle_terminates():
     pool = AsyncMock()
     pool.fetchrow.return_value = _node_row("incident.a", "incident", "incident.a")
     pool.fetch.side_effect = [
-        [{"source_node": "incident.a", "target_node": "incident.b", "weight": 1.0, "metadata": {}, "source_event_id": 1}],
-        [{"source_node": "incident.b", "target_node": "incident.a", "weight": 1.0, "metadata": {}, "source_event_id": 2}],
+        [{"source_node": "incident.a", "target_node": "incident.b", "weight": 1.0, "metadata": "{}", "source_event_id": 1}],
+        [{"source_node": "incident.b", "target_node": "incident.a", "weight": 1.0, "metadata": "{}", "source_event_id": 2}],
     ]
 
     result = await get_causal_edges(pool, "incident.a", "downstream", 5)

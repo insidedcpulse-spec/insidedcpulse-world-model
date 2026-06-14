@@ -1,3 +1,5 @@
+import json
+
 import asyncpg
 
 from app.schemas import (
@@ -18,6 +20,11 @@ from app.schemas import (
 MAX_PATH_DEPTH = 10
 MAX_CAUSAL_DEPTH = 10
 MAX_RELATED_DEPTH = 5
+
+
+def _decode_jsonb(value) -> dict:
+    """asyncpg returns jsonb columns as str (no codec configured); same pattern as graph_projection.py."""
+    return json.loads(value) if isinstance(value, str) else (value or {})
 
 
 async def _get_raw_node(pool: asyncpg.Pool, node_id: str):
@@ -42,9 +49,9 @@ async def get_node(pool: asyncpg.Pool, node_id: str) -> GraphNodeDetail | None:
         node_id,
     )
     return GraphNodeDetail(
-        node=GraphNode(**row),
-        edges_out=[GraphEdge(**e) for e in edges_out],
-        edges_in=[GraphEdge(**e) for e in edges_in],
+        node=GraphNode(**{**row, "metadata": _decode_jsonb(row["metadata"])}),
+        edges_out=[GraphEdge(**{**e, "metadata": _decode_jsonb(e["metadata"])}) for e in edges_out],
+        edges_in=[GraphEdge(**{**e, "metadata": _decode_jsonb(e["metadata"])}) for e in edges_in],
     )
 
 
@@ -52,11 +59,11 @@ def _neighbor_entry(row, direction: str) -> NeighborEntry:
     return NeighborEntry(
         node=GraphNode(
             id=row["n_id"], type=row["n_type"], label=row["n_label"],
-            metadata=row["n_metadata"], created_at=row["n_created_at"], updated_at=row["n_updated_at"],
+            metadata=_decode_jsonb(row["n_metadata"]), created_at=row["n_created_at"], updated_at=row["n_updated_at"],
         ),
         edge=GraphEdge(
             source_node=row["source_node"], target_node=row["target_node"], edge_type=row["edge_type"],
-            weight=row["weight"], metadata=row["metadata"], source_event_id=row["source_event_id"],
+            weight=row["weight"], metadata=_decode_jsonb(row["metadata"]), source_event_id=row["source_event_id"],
             created_at=row["created_at"],
         ),
         direction=direction,
@@ -131,7 +138,7 @@ async def get_path(pool: asyncpg.Pool, from_id: str, to_id: str, max_depth: int)
         )
         next_frontier = []
         for r in rows:
-            edge = GraphEdge(**r)
+            edge = GraphEdge(**{**r, "metadata": _decode_jsonb(r["metadata"])})
             for a, b in ((edge.source_node, edge.target_node), (edge.target_node, edge.source_node)):
                 if a in visited and b not in visited:
                     visited.add(b)
@@ -171,7 +178,14 @@ async def get_timeline(
             "ORDER BY split_part(id, '.', 2)::bigint DESC LIMIT $1 OFFSET $2",
             limit, offset,
         )
-    return TimelineResponse(entity=entity, events=[TimelineEntry(**r) for r in rows])
+    return TimelineResponse(entity=entity, events=[
+        TimelineEntry(**{
+            **r,
+            "metadata": _decode_jsonb(r["metadata"]),
+            "edge_metadata": _decode_jsonb(r["edge_metadata"]),
+        })
+        for r in rows
+    ])
 
 
 async def get_causal_edges(
@@ -202,7 +216,7 @@ async def get_causal_edges(
 
         next_frontier = []
         for r in rows:
-            chain.append(CausalChainEntry(depth=depth, **r))
+            chain.append(CausalChainEntry(depth=depth, **{**r, "metadata": _decode_jsonb(r["metadata"])}))
             other = r[other_key]
             if other not in visited:
                 visited.add(other)
@@ -245,7 +259,10 @@ async def find_related(
                 if a in frontier and b not in visited and len(related) < limit:
                     visited.add(b)
                     node_row = await _get_raw_node(pool, b)
-                    related.append(RelatedEntity(node=GraphNode(**node_row), distance=depth, edge_type=r["edge_type"]))
+                    related.append(RelatedEntity(
+                        node=GraphNode(**{**node_row, "metadata": _decode_jsonb(node_row["metadata"])}),
+                        distance=depth, edge_type=r["edge_type"],
+                    ))
                     next_frontier.append(b)
         if not next_frontier:
             break
