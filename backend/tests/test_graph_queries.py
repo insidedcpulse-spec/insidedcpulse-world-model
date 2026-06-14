@@ -322,3 +322,81 @@ async def test_get_causal_edges_not_found():
     result = await get_causal_edges(pool, "service.ghost", "upstream", 3)
 
     assert result is None
+
+
+from app.graph_queries import find_related
+
+
+@pytest.mark.asyncio
+async def test_find_related_both_directions():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("service.checkout", "service", "service.checkout"),
+        _node_row("team.sre", "team", "team.sre"),
+    ]
+    pool.fetch.side_effect = [
+        [_edge_row("service.checkout", "team.sre", "OWNED_BY")],
+        [],
+    ]
+
+    result = await find_related(pool, "service.checkout", None, "both", 2, 50)
+
+    assert result.node_id == "service.checkout"
+    assert len(result.related) == 1
+    assert result.related[0].node.id == "team.sre"
+    assert result.related[0].distance == 1
+    assert result.related[0].edge_type == "OWNED_BY"
+
+
+@pytest.mark.asyncio
+async def test_find_related_edge_types_filter_passed_to_query():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+    pool.fetch.return_value = []
+
+    await find_related(pool, "service.checkout", ["OWNED_BY"], "both", 2, 50)
+
+    args, _ = pool.fetch.call_args
+    assert args[2] == ["OWNED_BY"]
+
+
+@pytest.mark.asyncio
+async def test_find_related_max_depth_cutoff():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("incident.inc3", "incident", "incident.inc3"),
+        _node_row("service.checkout", "service", "service.checkout"),
+    ]
+    pool.fetch.return_value = [_edge_row("incident.inc3", "service.checkout", "REFERENCES")]
+
+    result = await find_related(pool, "incident.inc3", None, "both", 1, 50)
+
+    assert len(result.related) == 1
+    assert pool.fetch.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_find_related_limit_cutoff():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("team.sre", "team", "team.sre"),
+        _node_row("service.checkout", "service", "service.checkout"),
+    ]
+    pool.fetch.return_value = [
+        _edge_row("service.checkout", "team.sre", "OWNED_BY"),
+        _edge_row("service.auth", "team.sre", "OWNED_BY"),
+    ]
+
+    result = await find_related(pool, "team.sre", None, "both", 2, 1)
+
+    assert len(result.related) == 1
+
+
+@pytest.mark.asyncio
+async def test_find_related_not_found():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = None
+
+    result = await find_related(pool, "service.ghost", None, "both", 2, 50)
+
+    assert result is None

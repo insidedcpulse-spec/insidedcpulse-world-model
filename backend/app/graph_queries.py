@@ -212,3 +212,43 @@ async def get_causal_edges(
         frontier = next_frontier
 
     return CausalChainResponse(node_id=node_id, direction=direction, chain=chain)
+
+
+async def find_related(
+    pool: asyncpg.Pool, node_id: str, edge_types: list[str] | None, direction: str,
+    max_depth: int, limit: int,
+) -> RelatedEntitiesResponse | None:
+    """direction: 'out' | 'in' | 'both'. edge_types=None means any edge type."""
+    if await _get_raw_node(pool, node_id) is None:
+        return None
+
+    visited = {node_id}
+    frontier = [node_id]
+    related: list[RelatedEntity] = []
+    for depth in range(1, max_depth + 1):
+        if len(related) >= limit:
+            break
+        clauses = []
+        if direction in ("out", "both"):
+            clauses.append("source_node = ANY($1)")
+        if direction in ("in", "both"):
+            clauses.append("target_node = ANY($1)")
+        rows = await pool.fetch(
+            f"SELECT source_node, target_node, edge_type, weight, metadata, source_event_id, created_at "
+            f"FROM graph_edges WHERE ({' OR '.join(clauses)}) "
+            f"AND ($2::text[] IS NULL OR edge_type = ANY($2))",
+            frontier, edge_types,
+        )
+        next_frontier = []
+        for r in rows:
+            for a, b in ((r["source_node"], r["target_node"]), (r["target_node"], r["source_node"])):
+                if a in frontier and b not in visited and len(related) < limit:
+                    visited.add(b)
+                    node_row = await _get_raw_node(pool, b)
+                    related.append(RelatedEntity(node=GraphNode(**node_row), distance=depth, edge_type=r["edge_type"]))
+                    next_frontier.append(b)
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    return RelatedEntitiesResponse(node_id=node_id, max_depth=max_depth, related=related)
