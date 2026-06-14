@@ -147,3 +147,28 @@ async def get_path(pool: asyncpg.Pool, from_id: str, to_id: str, max_depth: int)
         frontier = next_frontier
 
     return PathResponse(from_id=from_id, to_id=to_id, found=False, path=[], edges=[], depth=max_depth)
+
+
+async def get_timeline(
+    pool: asyncpg.Pool, entity: str | None, limit: int, offset: int
+) -> TimelineResponse | None:
+    if entity is not None:
+        if await _get_raw_node(pool, entity) is None:
+            return None
+        rows = await pool.fetch(
+            "SELECT e.source_node AS event_id, n.label, n.metadata, e.weight, "
+            "e.metadata AS edge_metadata, e.source_event_id, e.created_at "
+            "FROM graph_edges e JOIN graph_nodes n ON n.id = e.source_node "
+            "WHERE e.target_node = $1 AND e.edge_type = 'AFFECTED' "
+            "ORDER BY e.source_event_id DESC LIMIT $2 OFFSET $3",
+            entity, limit, offset,
+        )
+    else:
+        rows = await pool.fetch(
+            "SELECT id AS event_id, label, metadata, NULL::numeric AS weight, "
+            "'{}'::jsonb AS edge_metadata, NULL::bigint AS source_event_id, created_at "
+            "FROM graph_nodes WHERE type = 'event' "
+            "ORDER BY split_part(id, '.', 2)::bigint DESC LIMIT $1 OFFSET $2",
+            limit, offset,
+        )
+    return TimelineResponse(entity=entity, events=[TimelineEntry(**r) for r in rows])

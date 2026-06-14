@@ -201,3 +201,48 @@ async def test_get_path_node_not_found():
     result = await get_path(pool, "service.ghost", "service.checkout", 6)
 
     assert result is None
+
+
+from app.graph_queries import get_timeline
+
+
+@pytest.mark.asyncio
+async def test_get_timeline_for_entity():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("incident.inc3", "incident", "incident.inc3")
+    pool.fetch.return_value = [{
+        "event_id": "event.42", "label": "mark incident open", "metadata": {"event_type": "vision"},
+        "weight": 1.0, "edge_metadata": {"fields": {"status": "open"}}, "source_event_id": 42, "created_at": NOW,
+    }]
+
+    result = await get_timeline(pool, "incident.inc3", 50, 0)
+
+    assert result.entity == "incident.inc3"
+    assert len(result.events) == 1
+    assert result.events[0].event_id == "event.42"
+    assert result.events[0].edge_metadata == {"fields": {"status": "open"}}
+
+
+@pytest.mark.asyncio
+async def test_get_timeline_global():
+    pool = AsyncMock()
+    pool.fetch.return_value = [{
+        "event_id": "event.43", "label": "deploy checkout v2", "metadata": {"event_type": "action"},
+        "weight": None, "edge_metadata": {}, "source_event_id": None, "created_at": NOW,
+    }]
+
+    result = await get_timeline(pool, None, 50, 0)
+
+    assert result.entity is None
+    assert result.events[0].event_id == "event.43"
+    pool.fetchrow.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_timeline_entity_not_found():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = None
+
+    result = await get_timeline(pool, "service.ghost", 50, 0)
+
+    assert result is None
