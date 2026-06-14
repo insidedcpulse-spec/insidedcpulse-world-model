@@ -121,3 +121,83 @@ async def test_get_neighbors_not_found():
 
     assert result is None
     pool.fetch.assert_not_called()
+
+
+from app.graph_queries import get_path
+
+
+@pytest.mark.asyncio
+async def test_get_path_same_node():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _node_row("service.checkout", "service", "service.checkout")
+
+    result = await get_path(pool, "service.checkout", "service.checkout", 6)
+
+    assert result.found is True
+    assert result.path == ["service.checkout"]
+    assert result.edges == []
+    assert result.depth == 0
+
+
+@pytest.mark.asyncio
+async def test_get_path_one_hop():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("incident.inc3", "incident", "incident.inc3"),
+        _node_row("service.checkout", "service", "service.checkout"),
+    ]
+    pool.fetch.return_value = [_edge_row("incident.inc3", "service.checkout", "REFERENCES")]
+
+    result = await get_path(pool, "incident.inc3", "service.checkout", 6)
+
+    assert result.found is True
+    assert result.path == ["incident.inc3", "service.checkout"]
+    assert [e.edge_type for e in result.edges] == ["REFERENCES"]
+    assert result.depth == 1
+
+
+@pytest.mark.asyncio
+async def test_get_path_two_hops():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("incident.inc3", "incident", "incident.inc3"),
+        _node_row("team.sre", "team", "team.sre"),
+    ]
+    pool.fetch.side_effect = [
+        [_edge_row("incident.inc3", "service.checkout", "REFERENCES")],
+        [_edge_row("service.checkout", "team.sre", "OWNED_BY")],
+    ]
+
+    result = await get_path(pool, "incident.inc3", "team.sre", 6)
+
+    assert result.found is True
+    assert result.path == ["incident.inc3", "service.checkout", "team.sre"]
+    assert [e.edge_type for e in result.edges] == ["REFERENCES", "OWNED_BY"]
+    assert result.depth == 2
+
+
+@pytest.mark.asyncio
+async def test_get_path_not_found_within_depth():
+    pool = AsyncMock()
+    pool.fetchrow.side_effect = [
+        _node_row("incident.inc3", "incident", "incident.inc3"),
+        _node_row("team.other", "team", "team.other"),
+    ]
+    pool.fetch.return_value = []
+
+    result = await get_path(pool, "incident.inc3", "team.other", 6)
+
+    assert result.found is False
+    assert result.path == []
+    assert result.edges == []
+    assert result.depth == 6
+
+
+@pytest.mark.asyncio
+async def test_get_path_node_not_found():
+    pool = AsyncMock()
+    pool.fetchrow.return_value = None
+
+    result = await get_path(pool, "service.ghost", "service.checkout", 6)
+
+    assert result is None

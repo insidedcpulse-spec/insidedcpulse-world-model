@@ -97,3 +97,53 @@ async def get_neighbors(
             neighbors += [_neighbor_entry(r, "in") for r in rows]
 
     return NeighborsResponse(node_id=node_id, edge_type=edge_type, direction=direction, neighbors=neighbors)
+
+
+def _reconstruct(from_id: str, to_id: str, parents: dict[str, GraphEdge]) -> dict:
+    path = [to_id]
+    edges: list[GraphEdge] = []
+    current = to_id
+    while current != from_id:
+        edge = parents[current]
+        edges.append(edge)
+        current = edge.source_node if edge.target_node == current else edge.target_node
+        path.append(current)
+    path.reverse()
+    edges.reverse()
+    return {"path": path, "edges": edges}
+
+
+async def get_path(pool: asyncpg.Pool, from_id: str, to_id: str, max_depth: int) -> PathResponse | None:
+    """Undirected bounded BFS. Caller validates max_depth <= MAX_PATH_DEPTH."""
+    if await _get_raw_node(pool, from_id) is None or await _get_raw_node(pool, to_id) is None:
+        return None
+    if from_id == to_id:
+        return PathResponse(from_id=from_id, to_id=to_id, found=True, path=[from_id], edges=[], depth=0)
+
+    visited = {from_id}
+    parents: dict[str, GraphEdge] = {}
+    frontier = [from_id]
+    for depth in range(1, max_depth + 1):
+        rows = await pool.fetch(
+            "SELECT source_node, target_node, edge_type, weight, metadata, source_event_id, created_at "
+            "FROM graph_edges WHERE source_node = ANY($1) OR target_node = ANY($1)",
+            frontier,
+        )
+        next_frontier = []
+        for r in rows:
+            edge = GraphEdge(**r)
+            for a, b in ((edge.source_node, edge.target_node), (edge.target_node, edge.source_node)):
+                if a in visited and b not in visited:
+                    visited.add(b)
+                    parents[b] = edge
+                    next_frontier.append(b)
+                    if b == to_id:
+                        return PathResponse(
+                            from_id=from_id, to_id=to_id, found=True,
+                            **_reconstruct(from_id, to_id, parents), depth=depth,
+                        )
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    return PathResponse(from_id=from_id, to_id=to_id, found=False, path=[], edges=[], depth=max_depth)
