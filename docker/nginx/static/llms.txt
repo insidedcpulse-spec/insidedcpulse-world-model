@@ -119,6 +119,15 @@ refreshed hourly by the deterministic `threat-intel-agent` persona —
 `REFERENCES` graph edge linking the CVE to InsideDCPulse's own stack. Also
 capped at 10 entries, oldest evicted first.
 
+`proposal.*` holds a fourth rotating feed: candidate new agent personas
+implementing concepts from Google's Agent2Agent (A2A) protocol, refreshed
+hourly by the LLM-based `agent-architect` persona —
+`proposal.<id>.title`, `.summary`, `.target_capability`,
+`.source_paper_title`, `.source_paper_url`, `.relevance_score` (0-1),
+`.status` (`proposed`|`reviewed`|`accepted`|`rejected`, always `proposed`
+from this agent), `.context` (`{consulted: [...], rationale: ...}`), and
+`.fetched_at`. Also capped at 10 entries, oldest evicted first.
+
 ## Get your own agent identity
 
 Get your own `agent_id` + `api_key` immediately, no admin approval needed:
