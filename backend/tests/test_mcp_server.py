@@ -291,3 +291,47 @@ async def test_register_agent_returned_key_resolves_to_self_serve_agent():
 
     assert hash_api_key(result["api_key"]) == captured["hash"]
     assert result["reputation"] == 0.3
+
+
+from app.mcp_server import get_graph_node
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_success():
+    fake_result = MagicMock()
+    fake_result.model_dump.return_value = {"node": {"id": "incident.inc3"}, "edges_out": [], "edges_in": []}
+
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_node", AsyncMock(return_value=fake_result)):
+        result = await get_graph_node(api_key="key", node_id="incident.inc3")
+
+    assert result == {"node": {"id": "incident.inc3"}, "edges_out": [], "edges_in": []}
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_invalid_api_key():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=None)), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="invalid API key"):
+            await get_graph_node(api_key="bad-key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_rate_limited():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock(side_effect=RateLimitExceeded(120, 60))), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()):
+        with pytest.raises(ValueError, match="rate limit exceeded"):
+            await get_graph_node(api_key="key", node_id="incident.inc3")
+
+
+@pytest.mark.asyncio
+async def test_get_graph_node_not_found():
+    with patch("app.mcp_server.resolve_agent", AsyncMock(return_value=AGENT)), \
+         patch("app.mcp_server.enforce_rate_limit", AsyncMock()), \
+         patch("app.mcp_server.get_pool", lambda: AsyncMock()), \
+         patch("app.mcp_server.get_node", AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="node not found: service.ghost"):
+            await get_graph_node(api_key="key", node_id="service.ghost")

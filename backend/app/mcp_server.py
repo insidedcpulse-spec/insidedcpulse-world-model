@@ -9,6 +9,7 @@ from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
+from app.graph_queries import get_node
 from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
@@ -157,3 +158,13 @@ async def register_agent(name: str) -> dict:
         return await register_self_agent(pool, name, client_ip)
     except RateLimitExceeded as exc:
         raise ValueError(str(exc)) from exc
+
+
+@mcp.tool()
+async def get_graph_node(api_key: str, node_id: str) -> dict:
+    """Return a graph node plus its direct outgoing/incoming edges."""
+    await _authenticate(api_key, READ)
+    result = await get_node(get_pool(), node_id)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
+    return result.model_dump(mode="json")
