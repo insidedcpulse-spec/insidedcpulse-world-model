@@ -9,7 +9,7 @@ from app.agents_repo import increment_submitted
 from app.config import settings
 from app.database import get_pool
 from app.events_repo import get_memory, insert_pending_event
-from app.graph_queries import get_neighbors, get_node, get_timeline
+from app.graph_queries import MAX_CAUSAL_DEPTH, get_causal_edges, get_neighbors, get_node, get_timeline
 from app.mcp_guard import get_client_ip
 from app.metrics import POSTGRES_WRITE_DURATION
 from app.rate_limit import RateLimitExceeded, enforce_rate_limit
@@ -195,4 +195,18 @@ async def get_event_timeline(api_key: str, entity: str | None = None, limit: int
     result = await get_timeline(get_pool(), entity, limit, offset)
     if result is None:
         raise ValueError(f"node not found: {entity}")
+    return result.model_dump(mode="json")
+
+
+@mcp.tool()
+async def get_causal_chain(api_key: str, node_id: str, direction: str = "upstream", max_depth: int = 3) -> dict:
+    """Traverse CAUSED edges upstream (what caused node_id) or downstream (what node_id caused)."""
+    await _authenticate(api_key, READ)
+    if direction not in ("upstream", "downstream"):
+        raise ValueError(f"invalid direction: {direction}")
+    if not 1 <= max_depth <= MAX_CAUSAL_DEPTH:
+        raise ValueError(f"max_depth must be between 1 and {MAX_CAUSAL_DEPTH}")
+    result = await get_causal_edges(get_pool(), node_id, direction, max_depth)
+    if result is None:
+        raise ValueError(f"node not found: {node_id}")
     return result.model_dump(mode="json")
