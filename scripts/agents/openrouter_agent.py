@@ -196,7 +196,14 @@ def call_openrouter(api_key: str, model: str, system_msg: str, user_msg: str) ->
         print(f"OpenRouter call failed: {resp.status_code} {resp.text}")
         sys.exit(1)
 
-    message = resp.json()["choices"][0]["message"]
+    body = resp.json()
+    choices = body.get("choices")
+    if not choices:
+        print("OpenRouter response missing 'choices'")
+        print(f"raw body: {body}")
+        sys.exit(1)
+
+    message = choices[0]["message"]
     content = message["content"]
     if content is None:
         print("OpenRouter returned empty content")
