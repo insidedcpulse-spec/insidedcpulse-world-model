@@ -148,7 +148,7 @@ async def project_event(conn, event_db_id, agent_id, payload, applied: dict[str,
     for entity_node_id, count in affected_counts.items():
         await _upsert_edge(
             conn, event_node_id, entity_node_id, "AFFECTED",
-            weight=count, metadata={"fields": affected_fields[entity_node_id]},
+            weight=min(count, 9.0), metadata={"fields": affected_fields[entity_node_id]},
             source_event_id=event_db_id,
         )
 

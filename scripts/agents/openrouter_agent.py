@@ -77,6 +77,17 @@ proposal.<id>.status                enum: proposed, reviewed, accepted, rejected
 proposal.<id>.context               object
 proposal.<id>.fetched_at            string
 
+scan_finding.<id>.target          string
+scan_finding.<id>.severity        enum: info, low, medium, high, critical
+scan_finding.<id>.confidence      enum: tentative, firm, certain
+scan_finding.<id>.module_name     string
+scan_finding.<id>.summary         string
+scan_finding.<id>.url             string
+scan_finding.<id>.matched_at      string
+scan_finding.<id>.tags            string
+scan_finding.<id>.scan_uuid       string
+scan_finding.<id>.found_at        string
+
 Valid ops: {"op": "set"|"increment"|"merge", "key": "<entity>.<id>.<field>", "value": ...}
 """
 
@@ -264,7 +275,30 @@ def main() -> None:
     print("== recent memory ==")
     print(json.dumps(memory, indent=2))
 
+    from vigolium_utils import (
+        format_findings_context,
+        get_scan_min_severity,
+        get_scan_strategy,
+        get_scan_target,
+        scan_and_feed,
+    )
+
+    scan_target = get_scan_target(env)
+    vigolium_context = ""
+    if scan_target:
+        findings = scan_and_feed(
+            scan_target, agent_api_key, world_state,
+            evaluate_vision, propose_vision,
+            strategy=get_scan_strategy(env),
+            min_severity=get_scan_min_severity(env),
+        )
+        vigolium_context = format_findings_context(findings)
+        world_state = get_world_state(agent_api_key)
+
     persona_focus = env.get("PERSONA_FOCUS") or DEFAULT_PERSONA_FOCUS
+    if vigolium_context:
+        persona_focus = f"{persona_focus}\n\n{vigolium_context}\n\nIncorporate these scan findings into your update."
+
     system_msg, user_msg = build_prompt(world_state, memory, persona_focus)
 
     print("== OpenRouter response ==")

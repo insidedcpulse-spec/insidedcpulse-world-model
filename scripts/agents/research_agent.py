@@ -106,6 +106,19 @@ def main() -> None:
     print(f"== agent: {agent_id} ==")
 
     world_state = get_world_state(agent_api_key)
+
+    from vigolium_utils import get_scan_min_severity, get_scan_strategy, get_scan_target, scan_and_feed
+
+    scan_target = get_scan_target(env)
+    if scan_target:
+        scan_and_feed(
+            scan_target, agent_api_key, world_state,
+            evaluate_vision, propose_vision,
+            strategy=get_scan_strategy(env),
+            min_severity=get_scan_min_severity(env),
+        )
+        world_state = get_world_state(agent_api_key)
+
     state = world_state["state"]
 
     existing_ids: dict[str, str] = {}

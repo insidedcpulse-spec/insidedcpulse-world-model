@@ -96,6 +96,18 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "context": {"type": "object"},
         "fetched_at": {"type": "string"},
     },
+    "scan_finding": {
+        "target": {"type": "string"},
+        "severity": {"type": "enum", "values": ["info", "low", "medium", "high", "critical"]},
+        "confidence": {"type": "enum", "values": ["tentative", "firm", "certain"]},
+        "module_name": {"type": "string"},
+        "summary": {"type": "string"},
+        "url": {"type": "string"},
+        "matched_at": {"type": "string"},
+        "tags": {"type": "string"},
+        "scan_uuid": {"type": "string"},
+        "found_at": {"type": "string"},
+    },
 }
 
 
