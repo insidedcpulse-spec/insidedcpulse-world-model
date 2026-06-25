@@ -305,9 +305,14 @@ def main() -> None:
     vision = call_openrouter(openrouter_key, model, system_msg, user_msg)
     print(json.dumps(vision, indent=2))
 
+    ops = vision.get("ops") or []
+    if not ops:
+        print("Model returned no ops — nothing to propose.")
+        return
+
     payload = {
         "description": vision["description"],
-        "ops": vision["ops"],
+        "ops": ops,
         "metadata": vision.get("metadata") or {},
     }
 
