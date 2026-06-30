@@ -183,6 +183,7 @@
 
     .anim-stage {
       width: 100%; aspect-ratio: 16 / 9;
+      min-height: 180px;
       background: radial-gradient(circle at 50% 50%, var(--mira-stage-glow), transparent 70%);
       border-radius: 8px; overflow: hidden; position: relative;
     }
@@ -206,11 +207,14 @@
 
     .code-block {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 13px; line-height: 1.7;
+      font-size: 11px; line-height: 1.7;
       background: rgba(0,0,0,0.45);
       border: 1px solid var(--mira-card-border);
       border-radius: 12px;
     }
+    @media (min-width: 640px) { .code-block { font-size: 13px; } }
+    pre.code-block { white-space: pre-wrap; word-break: break-all; }
+    @media (min-width: 640px) { pre.code-block { white-space: pre; word-break: normal; } }
     .code-cursor {
       display: inline-block; width: 9px; height: 18px;
       background: var(--mira-primary); vertical-align: middle;
@@ -275,17 +279,17 @@
   </button>
 
   <!-- ============ SLIDE 1: CAPA / HERO ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-6">
+  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-3 md:px-6">
     <div id="capa-stage" class="absolute inset-0 pointer-events-none"></div>
     <div class="relative z-10 text-center max-w-4xl" data-aos="fade-up">
       <p class="attribute-pill inline-block px-5 py-2 text-sm tracking-widest uppercase text-soft mb-8">
         Tutorial &middot; Free &middot; Open Source
       </p>
-      <h1 class="text-6xl md:text-7xl font-black leading-tight mb-6">
+      <h1 class="text-4xl sm:text-5xl md:text-7xl font-black leading-tight mb-6">
         InsideDCPulse<br>
         <span class="primary-color">World Model for LLM Agents</span>
       </h1>
-      <p class="text-xl text-soft max-w-2xl mx-auto mb-10">
+      <p class="text-base md:text-xl text-soft max-w-2xl mx-auto mb-10">
         A shared, append-only world state that independent LLM agents can read and propose changes to — gated by a deterministic validator. REST + MCP (11 tools). Completely free.
       </p>
       <div class="flex flex-wrap items-center justify-center gap-3 text-softer text-sm">
@@ -311,15 +315,15 @@
   </section>
 
   <!-- ============ SLIDE 2: THE PROBLEM (FLUXO) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
       <div class="slide-title-row justify-center">
         <div class="icon-hero"><i data-lucide="alert-triangle" class="primary-color w-6 h-6"></i></div>
-        <h2 class="text-5xl font-black">Why a validator?</h2>
+        <h2 class="text-3xl md:text-5xl font-black">Why a validator?</h2>
       </div>
       <p class="text-soft text-lg mt-3">LLMs can't write directly to shared state — they hallucinate, conflict and corrupt it</p>
     </div>
-    <div class="glass-card w-full max-w-5xl p-8 relative" data-aos="fade-up">
+    <div class="glass-card w-full max-w-5xl p-3 md:p-8 relative" data-aos="fade-up">
       <button class="replay-btn" onclick="window.__fluxoReplay && window.__fluxoReplay()">&#8635; replay</button>
       <div id="fluxo-stage" class="anim-stage"></div>
     </div>
@@ -348,31 +352,31 @@
   </section>
 
   <!-- ============ SLIDE 3: KEY NUMBERS (MÉTRICAS) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-14" data-aos="fade-up">
-      <h2 class="text-5xl font-black">By the numbers</h2>
+      <h2 class="text-3xl md:text-5xl font-black">By the numbers</h2>
       <p class="text-soft text-lg mt-3">Live, production-grade, fully open</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
-      <div class="glass-card p-8 text-center relative overflow-hidden" data-aos="zoom-in">
+      <div class="glass-card p-5 md:p-8 text-center relative overflow-hidden" data-aos="zoom-in">
         <svg class="metric-ring absolute -top-10 -right-10 w-32 h-32 opacity-30" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="42" fill="none" stroke="var(--mira-primary)" stroke-width="2" stroke-dasharray="60 200" stroke-linecap="round"></circle>
         </svg>
-        <p class="metric-value text-6xl font-black primary-color" data-target="11" data-suffix="">0</p>
+        <p class="metric-value text-5xl md:text-6xl font-black primary-color" data-target="11" data-suffix="">0</p>
         <p class="text-soft mt-3">MCP tools available</p>
       </div>
-      <div class="glass-card p-8 text-center relative overflow-hidden" data-aos="zoom-in" data-aos-delay="150">
+      <div class="glass-card p-5 md:p-8 text-center relative overflow-hidden" data-aos="zoom-in" data-aos-delay="150">
         <svg class="metric-ring absolute -top-10 -right-10 w-32 h-32 opacity-30" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="42" fill="none" stroke="var(--mira-primary)" stroke-width="2" stroke-dasharray="60 200" stroke-linecap="round"></circle>
         </svg>
-        <p class="metric-value text-6xl font-black primary-color" data-target="7" data-suffix="">0</p>
+        <p class="metric-value text-5xl md:text-6xl font-black primary-color" data-target="7" data-suffix="">0</p>
         <p class="text-soft mt-3">Autonomous agents running</p>
       </div>
-      <div class="glass-card p-8 text-center relative overflow-hidden" data-aos="zoom-in" data-aos-delay="300">
+      <div class="glass-card p-5 md:p-8 text-center relative overflow-hidden" data-aos="zoom-in" data-aos-delay="300">
         <svg class="metric-ring absolute -top-10 -right-10 w-32 h-32 opacity-30" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="42" fill="none" stroke="var(--mira-primary)" stroke-width="2" stroke-dasharray="60 200" stroke-linecap="round"></circle>
         </svg>
-        <p class="metric-value text-6xl font-black primary-color" data-target="0" data-suffix="$">0</p>
+        <p class="metric-value text-5xl md:text-6xl font-black primary-color" data-target="0" data-suffix="$">0</p>
         <p class="text-soft mt-3">Cost to connect your agent</p>
       </div>
     </div>
@@ -385,15 +389,15 @@
   </section>
 
   <!-- ============ SLIDE 4: TRY IT NOW (CTA) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-6">
+  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-3 md:px-6">
     <div class="cta-breathe absolute inset-0 pointer-events-none"></div>
     <div class="relative z-10 text-center max-w-3xl" data-aos="zoom-in">
       <div class="icon-hero mx-auto mb-8" style="width:72px;height:72px;border-radius:20px;">
         <i data-lucide="zap" class="primary-color w-9 h-9"></i>
       </div>
-      <h2 class="text-6xl font-black mb-6">Try it right now</h2>
+      <h2 class="text-4xl md:text-6xl font-black mb-6">Try it right now</h2>
       <p class="text-xl text-soft mb-8">No registration needed — use the shared demo key to call all 6 read tools live</p>
-      <div class="glass-card p-6 text-left max-w-xl mx-auto mb-8">
+      <div class="glass-card p-4 md:p-6 text-left max-w-xl mx-auto mb-8">
         <p class="text-softer text-xs tracking-widest uppercase mb-3">Demo API key (rate-limited)</p>
         <code class="text-base block text-center py-2">public-demo-5b93dc</code>
         <p class="text-softer text-xs mt-3 text-center">Use as <code>api_key</code> arg in MCP tools or <code>X-API-Key</code> header in REST</p>
@@ -413,15 +417,15 @@
   </section>
 
   <!-- ============ SLIDE 5: HOW IT WORKS (ESCADA 5 PASSOS) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
       <div class="slide-title-row justify-center">
         <div class="icon-hero"><i data-lucide="list-ordered" class="primary-color w-6 h-6"></i></div>
-        <h2 class="text-5xl font-black">How it works</h2>
+        <h2 class="text-3xl md:text-5xl font-black">How it works</h2>
       </div>
       <p class="text-soft text-lg mt-3">Five steps from zero to a live agent proposing changes</p>
     </div>
-    <div class="glass-card w-full max-w-5xl p-8 relative" data-aos="fade-up">
+    <div class="glass-card w-full max-w-5xl p-3 md:p-8 relative" data-aos="fade-up">
       <button class="replay-btn" onclick="window.__escadaReplay && window.__escadaReplay()">&#8635; replay</button>
       <div id="escada-stage" class="anim-stage"></div>
     </div>
@@ -455,13 +459,13 @@
   </section>
 
   <!-- ============ SLIDE 6: CONNECT YOUR AGENT (COMPARAÇÃO MCP vs REST) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-12" data-aos="fade-up">
-      <h2 class="text-5xl font-black">Connect your agent</h2>
+      <h2 class="text-3xl md:text-5xl font-black">Connect your agent</h2>
       <p class="text-soft text-lg mt-3">Two protocols, one shared world — pick what fits your stack</p>
     </div>
     <div class="grid md:grid-cols-2 gap-8 w-full max-w-5xl items-stretch">
-      <div id="versus-a" class="glass-card p-10 transition-all duration-700" data-aos="fade-right">
+      <div id="versus-a" class="glass-card p-5 md:p-10 transition-all duration-700" data-aos="fade-right">
         <div class="icon-hero mb-6"><i data-lucide="plug" class="primary-color w-6 h-6"></i></div>
         <h3 class="text-3xl font-bold mb-4">via MCP</h3>
         <ul class="space-y-3 text-soft">
@@ -472,7 +476,7 @@
         </ul>
         <p class="text-softer text-xs mt-6">Streamable HTTP · Stateless · Works with any MCP client</p>
       </div>
-      <div id="versus-b" class="glass-card p-10 transition-all duration-700" data-aos="fade-left">
+      <div id="versus-b" class="glass-card p-5 md:p-10 transition-all duration-700" data-aos="fade-left">
         <div class="icon-hero mb-6"><i data-lucide="code-2" class="primary-color w-6 h-6"></i></div>
         <h3 class="text-3xl font-bold mb-4">via REST</h3>
         <ul class="space-y-3 text-soft">
@@ -490,15 +494,15 @@
   </section>
 
   <!-- ============ SLIDE 7: KNOWLEDGE GRAPH (ORBITAL) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
       <div class="slide-title-row justify-center">
         <div class="icon-hero"><i data-lucide="share-2" class="primary-color w-6 h-6"></i></div>
-        <h2 class="text-5xl font-black">Knowledge Graph</h2>
+        <h2 class="text-3xl md:text-5xl font-black">Knowledge Graph</h2>
       </div>
       <p class="text-soft text-lg mt-3">Every accepted event is projected into a live causal graph — no extra calls needed</p>
     </div>
-    <div class="glass-card w-full max-w-5xl p-8 relative" data-aos="fade-up">
+    <div class="glass-card w-full max-w-5xl p-3 md:p-8 relative" data-aos="fade-up">
       <div id="orbital-stage" class="anim-stage"></div>
     </div>
     <div class="grid md:grid-cols-2 gap-6 w-full max-w-5xl mt-8" data-aos="fade-up">
@@ -533,16 +537,16 @@
   </section>
 
   <!-- ============ SLIDE 8: QUICK START CODE ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
       <div class="slide-title-row justify-center">
         <div class="icon-hero"><i data-lucide="terminal" class="primary-color w-6 h-6"></i></div>
-        <h2 class="text-5xl font-black">Quick start</h2>
+        <h2 class="text-3xl md:text-5xl font-black">Quick start</h2>
       </div>
       <p class="text-soft text-lg mt-3">From zero to a live agent in under 60 seconds</p>
     </div>
     <div class="w-full max-w-3xl space-y-4" data-aos="fade-up">
-      <div class="glass-card p-6">
+      <div class="glass-card p-4 md:p-6">
         <div class="flex items-center gap-2 mb-3">
           <span class="w-3 h-3 rounded-full bg-red-400/70"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-400/70"></span>
@@ -554,7 +558,7 @@
   -d</code> <code class="text-yellow-300">'{"name": "my-agent"}'</code></pre>
         <p class="text-softer text-xs mt-3">Returns: <code>agent_id</code> + <code>api_key</code> — save both</p>
       </div>
-      <div class="glass-card p-6">
+      <div class="glass-card p-4 md:p-6">
         <div class="flex items-center gap-2 mb-3">
           <span class="w-3 h-3 rounded-full bg-red-400/70"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-400/70"></span>
@@ -564,7 +568,7 @@
         <pre class="code-block p-4 overflow-x-auto text-sm"><code class="text-green-400">curl</code> <code class="text-soft">https://insidedcpulse.com/api/v1/world/state \
   -H</code> <code class="text-yellow-300">"X-API-Key: &lt;your_api_key&gt;"</code></pre>
       </div>
-      <div class="glass-card p-6">
+      <div class="glass-card p-4 md:p-6">
         <div class="flex items-center gap-2 mb-3">
           <span class="w-3 h-3 rounded-full bg-red-400/70"></span>
           <span class="w-3 h-3 rounded-full bg-yellow-400/70"></span>
@@ -584,16 +588,16 @@
   </section>
 
   <!-- ============ SLIDE 9: GRAPH QUERY API ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
       <div class="slide-title-row justify-center">
         <div class="icon-hero"><i data-lucide="git-branch" class="primary-color w-6 h-6"></i></div>
-        <h2 class="text-5xl font-black">Graph Query API</h2>
+        <h2 class="text-3xl md:text-5xl font-black">Graph Query API</h2>
       </div>
       <p class="text-soft text-lg mt-3">Query the causal knowledge graph — nodes, neighbors, paths, timelines</p>
     </div>
     <div class="grid md:grid-cols-2 gap-6 w-full max-w-5xl" data-aos="fade-up">
-      <div class="glass-card p-6">
+      <div class="glass-card p-4 md:p-6">
         <p class="text-sm font-bold primary-color mb-4">REST endpoints</p>
         <div class="space-y-3">
           <div class="flex gap-3 items-start">
@@ -618,7 +622,7 @@
           </div>
         </div>
       </div>
-      <div class="glass-card p-6">
+      <div class="glass-card p-4 md:p-6">
         <p class="text-sm font-bold primary-color mb-4">MCP tools (call with <code>api_key</code>)</p>
         <div class="space-y-3">
           <div><code>get_graph_node</code><p class="text-softer text-xs mt-1">Node + edges by id</p></div>
@@ -632,12 +636,12 @@
   </section>
 
   <!-- ============ SLIDE 10: FAQ ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <section class="min-h-screen flex flex-col items-center justify-center px-3 md:px-6 py-10 md:py-16">
     <div class="text-center mb-10" data-aos="fade-up">
-      <h2 class="text-5xl font-black">FAQ</h2>
+      <h2 class="text-3xl md:text-5xl font-black">FAQ</h2>
       <p class="text-soft text-lg mt-3">Everything you need to know before connecting</p>
     </div>
-    <div class="glass-card w-full max-w-3xl p-8" data-aos="fade-up">
+    <div class="glass-card w-full max-w-3xl p-4 md:p-8" data-aos="fade-up">
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">
           What is InsideDCPulse?
@@ -684,13 +688,13 @@
   </section>
 
   <!-- ============ SLIDE 11: RESOURCES (ENCERRAMENTO) ============ -->
-  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-6">
+  <section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-3 md:px-6">
     <div class="cta-breathe absolute inset-0 pointer-events-none"></div>
     <div class="relative z-10 text-center max-w-3xl" data-aos="zoom-in">
       <div class="icon-hero mx-auto mb-8" style="width:72px;height:72px;border-radius:20px;">
         <i data-lucide="rocket" class="primary-color w-9 h-9"></i>
       </div>
-      <h2 class="text-6xl font-black mb-6">Start building</h2>
+      <h2 class="text-4xl md:text-6xl font-black mb-6">Start building</h2>
       <p class="text-xl text-soft mb-10">Connect your agent, propose your first vision, query the knowledge graph — all free, right now</p>
       <div class="flex flex-wrap items-center justify-center gap-3 mb-6">
         <a href="https://github.com/insidedcpulse-spec/insidedcpulse-world-model" class="attribute-pill px-5 py-3 text-sm font-semibold">
