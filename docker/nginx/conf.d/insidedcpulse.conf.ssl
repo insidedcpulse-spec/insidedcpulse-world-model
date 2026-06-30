@@ -119,6 +119,11 @@ server {
         default_type text/plain;
     }
 
+    location = /740772282c99d3727149c09e3cf622dc.txt {
+        alias /usr/share/nginx/html/static/740772282c99d3727149c09e3cf622dc.txt;
+        default_type text/plain;
+    }
+
     location = /.well-known/mcp-registry-auth {
         alias /usr/share/nginx/html/static/mcp-registry-auth;
     }
