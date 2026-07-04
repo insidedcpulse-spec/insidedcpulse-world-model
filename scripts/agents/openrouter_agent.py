@@ -88,6 +88,30 @@ scan_finding.<id>.tags            string
 scan_finding.<id>.scan_uuid       string
 scan_finding.<id>.found_at        string
 
+page.<id>.url                   string
+page.<id>.title                 string
+page.<id>.meta_description      string
+page.<id>.schema_types          string
+page.<id>.status                enum: live, draft, planned
+
+keyword.<id>.term               string
+keyword.<id>.locale             enum: en, pt, es
+keyword.<id>.target_page        string
+keyword.<id>.search_intent      enum: informational, transactional, navigational
+keyword.<id>.priority           enum: high, medium, low
+keyword.<id>.status             enum: targeting, ranking, gap
+
+content_gap.<id>.topic          string
+content_gap.<id>.priority       enum: high, medium, low
+content_gap.<id>.status         enum: identified, in_progress, done
+content_gap.<id>.effort         enum: low, medium, high
+content_gap.<id>.notes          string
+
+backlink.<id>.source            string
+backlink.<id>.target_page       string
+backlink.<id>.status            enum: live, pending, rejected
+backlink.<id>.type              enum: guest_post, directory, press, organic
+
 Valid ops: {"op": "set"|"increment"|"merge", "key": "<entity>.<id>.<field>", "value": ...}
 """
 
