@@ -312,3 +312,51 @@ def test_rejects_proposal_unknown_field():
     ok, msg = check_domain_consistency(op, None)
     assert ok is False
     assert msg == "unknown field 'unknown_field' for entity 'proposal'"
+
+
+def test_set_page_status_valid():
+    op = WorldOp(op="set", key="page.home.status", value="live")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_invalid_page_status():
+    op = WorldOp(op="set", key="page.home.status", value="archived")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert "must be one of" in msg
+
+
+def test_set_keyword_priority_valid():
+    op = WorldOp(op="set", key="keyword.wa_username.priority", value="high")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_increment_on_keyword_priority():
+    op = WorldOp(op="increment", key="keyword.wa_username.priority", value=1)
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'increment' not allowed on field 'priority' (type 'enum')"
+
+
+def test_set_content_gap_notes_valid():
+    op = WorldOp(op="set", key="content_gap.producthunt.notes", value="Submit tool listing")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_merge_on_content_gap_notes():
+    op = WorldOp(op="merge", key="content_gap.producthunt.notes", value={"x": 1})
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "op 'merge' not allowed on field 'notes' (type 'string')"
+
+
+def test_set_backlink_status_valid():
+    op = WorldOp(op="set", key="backlink.devto1.status", value="live")
+    assert check_domain_consistency(op, None) == (True, None)
+
+
+def test_rejects_backlink_unknown_field():
+    op = WorldOp(op="set", key="backlink.devto1.unknown_field", value="x")
+    ok, msg = check_domain_consistency(op, None)
+    assert ok is False
+    assert msg == "unknown field 'unknown_field' for entity 'backlink'"

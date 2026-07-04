@@ -151,3 +151,58 @@ def test_get_field_spec_proposal_status():
 
 def test_get_field_spec_proposal_context():
     assert get_field_spec("proposal", "context") == {"type": "object"}
+
+
+def test_parse_key_valid_page():
+    assert parse_key("page.home.status") == KeyParts("page", "home", "status")
+
+
+def test_get_field_spec_page_status():
+    assert get_field_spec("page", "status") == {
+        "type": "enum",
+        "values": ["live", "draft", "planned"],
+    }
+
+
+def test_parse_key_valid_keyword():
+    assert parse_key("keyword.wa_username.locale") == KeyParts(
+        "keyword", "wa_username", "locale"
+    )
+
+
+def test_get_field_spec_keyword_priority():
+    assert get_field_spec("keyword", "priority") == {
+        "type": "enum",
+        "values": ["high", "medium", "low"],
+    }
+
+
+def test_get_field_spec_keyword_search_intent():
+    assert get_field_spec("keyword", "search_intent") == {
+        "type": "enum",
+        "values": ["informational", "transactional", "navigational"],
+    }
+
+
+def test_parse_key_valid_content_gap():
+    assert parse_key("content_gap.producthunt.status") == KeyParts(
+        "content_gap", "producthunt", "status"
+    )
+
+
+def test_get_field_spec_content_gap_effort():
+    assert get_field_spec("content_gap", "effort") == {
+        "type": "enum",
+        "values": ["low", "medium", "high"],
+    }
+
+
+def test_parse_key_valid_backlink():
+    assert parse_key("backlink.devto1.status") == KeyParts("backlink", "devto1", "status")
+
+
+def test_get_field_spec_backlink_type():
+    assert get_field_spec("backlink", "type") == {
+        "type": "enum",
+        "values": ["guest_post", "directory", "press", "organic"],
+    }

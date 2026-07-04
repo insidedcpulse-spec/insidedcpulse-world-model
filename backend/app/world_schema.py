@@ -108,6 +108,34 @@ ENTITY_SCHEMAS: dict[str, dict[str, FieldSpec]] = {
         "scan_uuid": {"type": "string"},
         "found_at": {"type": "string"},
     },
+    "page": {
+        "url": {"type": "string"},
+        "title": {"type": "string"},
+        "meta_description": {"type": "string"},
+        "schema_types": {"type": "string"},
+        "status": {"type": "enum", "values": ["live", "draft", "planned"]},
+    },
+    "keyword": {
+        "term": {"type": "string"},
+        "locale": {"type": "enum", "values": ["en", "pt", "es"]},
+        "target_page": {"type": "string"},
+        "search_intent": {"type": "enum", "values": ["informational", "transactional", "navigational"]},
+        "priority": {"type": "enum", "values": ["high", "medium", "low"]},
+        "status": {"type": "enum", "values": ["targeting", "ranking", "gap"]},
+    },
+    "content_gap": {
+        "topic": {"type": "string"},
+        "priority": {"type": "enum", "values": ["high", "medium", "low"]},
+        "status": {"type": "enum", "values": ["identified", "in_progress", "done"]},
+        "effort": {"type": "enum", "values": ["low", "medium", "high"]},
+        "notes": {"type": "string"},
+    },
+    "backlink": {
+        "source": {"type": "string"},
+        "target_page": {"type": "string"},
+        "status": {"type": "enum", "values": ["live", "pending", "rejected"]},
+        "type": {"type": "enum", "values": ["guest_post", "directory", "press", "organic"]},
+    },
 }
 
 
