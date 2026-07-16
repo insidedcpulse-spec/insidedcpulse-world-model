@@ -25,6 +25,14 @@ server {
 
     client_max_body_size 1m;
 
+    # Security headers (site-wide)
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://d3js.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://insidedcpulse.com wss://insidedcpulse.com; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'" always;
+
     # Real-time world stream
     location /ws/world-stream {
         proxy_pass http://api:8000/ws/world-stream;
@@ -137,6 +145,7 @@ server {
 
     # Public API
     location / {
+        add_header Cache-Control "no-store" always;
         limit_req zone=api_limit burst=40 nodelay;
         proxy_pass http://api:8000;
         proxy_set_header Host $host;
